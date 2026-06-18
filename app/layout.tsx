@@ -6,7 +6,10 @@ export const metadata: Metadata = {
   description:
     "Local batch uploader for Roblox Open Cloud Image assets. Made by StarVSK.",
   icons: {
-    icon: [{ url: "/icon.png", type: "image/png" }],
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+    ],
     apple: [{ url: "/apple-icon.png", type: "image/png" }],
   },
 };

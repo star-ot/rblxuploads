@@ -1,4 +1,4 @@
-import { createRobloxImageAsset, RobloxUploadError } from "@/lib/roblox-client";
+import { createRobloxImageAsset, RobloxUploadError } from "@/lib/roblox/client";
 import { formatRobloxAssetName } from "@/lib/name-formatter";
 import { isSupportedImageFile } from "@/lib/file-parser";
 import type { CreatorType, UploadApiResponse } from "@/lib/types";
@@ -6,6 +6,14 @@ import type { CreatorType, UploadApiResponse } from "@/lib/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * Local upload proxy — the only server route that talks to the outside world.
+ *
+ * Security model:
+ * - API keys come from the browser per request (stored in localStorage client-side).
+ * - No .env fallback, no server-side credential storage, no logging of secrets.
+ * - Roblox Open Cloud is the sole external network call from this app.
+ */
 export async function POST(request: Request): Promise<Response> {
   try {
     const formData = await request.formData();
@@ -13,7 +21,7 @@ export async function POST(request: Request): Promise<Response> {
     const fileCandidate = formData.get("file");
     const creatorId = `${formData.get("creatorId") ?? ""}`.trim();
     const creatorType = `${formData.get("creatorType") ?? "user"}` as CreatorType;
-    const apiKeyFromClient = `${formData.get("apiKey") ?? ""}`.trim();
+    const apiKey = `${formData.get("apiKey") ?? ""}`.trim();
     const displayNameRaw = `${formData.get("displayName") ?? ""}`.trim();
 
     if (!(fileCandidate instanceof File)) {
@@ -47,13 +55,11 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    const apiKey = apiKeyFromClient || process.env.ROBLOX_OPEN_CLOUD_API_KEY;
     if (!apiKey) {
       return json(
         {
           ok: false,
-          error:
-            "Missing API key. Set it in Settings or ROBLOX_OPEN_CLOUD_API_KEY.",
+          error: "Missing API key. Enter your Roblox Open Cloud key in Settings.",
         },
         { status: 400 },
       );

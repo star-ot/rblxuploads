@@ -1,4 +1,6 @@
+/** Accepted image extensions for Roblox Image asset uploads. */
 const SUPPORTED_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp"]);
+
 const SUPPORTED_MIME_TYPES = new Set([
   "image/png",
   "image/jpeg",

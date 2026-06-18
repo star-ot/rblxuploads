@@ -1,24 +1,259 @@
 @import "tailwindcss";
 
+/*
+ * StarVSK RblxUploads — local-first palette.
+ * System fonts only: no Google Fonts or external CDN requests at runtime.
+ */
 :root {
-  --background: #09090b;
-  --foreground: #e4e4e7;
+  --bg-base: #0c0b0a;
+  --bg-elevated: #141210;
+  --surface: #1a1816;
+  --surface-inset: #100f0d;
+  --border: #2e2a26;
+  --border-subtle: #221f1c;
+
+  --text-primary: #f3ece4;
+  --text-secondary: #b8aea3;
+  --text-muted: #7a7268;
+
+  --accent: #e4572e;
+  --accent-hover: #f06840;
+  --accent-secondary: #5ec4b6;
+  --accent-glow: rgba(228, 87, 46, 0.18);
+
+  --danger-bg: rgba(180, 52, 45, 0.12);
+  --danger-border: rgba(220, 90, 82, 0.35);
+  --danger-text: #f0a8a2;
+
+  --success-bg: rgba(46, 140, 110, 0.15);
+  --success-text: #8ed9be;
+
+  --warning-bg: rgba(200, 140, 40, 0.15);
+  --warning-text: #e8c878;
+
+  --font-display: "Bahnschrift", "Franklin Gothic Medium", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Code", "Consolas", "Liberation Mono", monospace;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg-base);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Subtle workshop grid — purely CSS, no image assets */
+.app-backdrop {
+  background-color: var(--bg-base);
+  background-image:
+    linear-gradient(rgba(228, 87, 46, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(228, 87, 46, 0.03) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(165deg, var(--surface) 0%, var(--bg-elevated) 100%);
+  padding: 1.25rem;
+}
+
+.panel-accent {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+}
+
+.brand-mark {
+  display: inline-flex;
+  height: 2rem;
+  width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: var(--accent-glow);
+  color: var(--accent);
+  font-size: 0.95rem;
+}
+
+.btn-primary {
+  border-radius: 8px;
+  background: var(--accent);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1a0f0a;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-secondary {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-inset);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  transition: border-color 150ms ease, color 150ms ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  color: var(--text-primary);
+}
+
+.field-input {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-inset);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.field-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.field-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.drop-zone {
+  position: relative;
+  min-height: 9.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--surface-inset);
+  text-align: center;
+  transition: background 180ms ease, box-shadow 180ms ease;
+}
+
+.drop-zone::before,
+.drop-zone::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: var(--text-muted);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.drop-zone::before {
+  top: 10px;
+  left: 10px;
+  border-top: 2px solid;
+  border-left: 2px solid;
+}
+
+.drop-zone::after {
+  right: 10px;
+  bottom: 10px;
+  border-right: 2px solid;
+  border-bottom: 2px solid;
+}
+
+.drop-zone-active {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-inset));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.progress-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-inset);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent) 0%, #f08050 100%);
+  transition: width 300ms ease;
+}
+
+.progress-fill-animated {
+  background-size: 200% 100%;
+  animation: progress-shimmer 2.2s linear infinite;
+}
+
+@keyframes progress-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 6px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.status-waiting {
+  background: #2a2724;
+  color: var(--text-muted);
+}
+
+.status-uploading {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: #f5b09a;
+}
+
+.status-processing {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.status-complete {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.status-failed {
+  background: var(--danger-bg);
+  color: var(--danger-text);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #3f3f46 transparent;
+  scrollbar-color: #3d3832 transparent;
 }

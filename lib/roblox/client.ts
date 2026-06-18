@@ -1,4 +1,12 @@
-const ROBLOX_ASSETS_BASE_URL = "https://apis.roblox.com/assets/v1";
+/**
+ * Server-side Roblox Open Cloud client.
+ *
+ * This module is imported only from API routes — never from client components.
+ * The browser cannot call Roblox directly (CORS), so uploads are proxied through
+ * the local Next.js server at POST /api/upload.
+ */
+
+const ROBLOX_ASSETS_BASE_URL = `https://apis.roblox.com/assets/v1`;
 const CREATE_ASSET_URL = `${ROBLOX_ASSETS_BASE_URL}/assets`;
 
 const POLL_INTERVAL_MS = 1500;
@@ -48,7 +56,7 @@ export async function createRobloxImageAsset(
     JSON.stringify({
       assetType: "Image",
       displayName: input.displayName,
-      description: `Uploaded from Roblox uploader: ${input.displayName}`,
+      description: `Uploaded via StarVSK RblxUploads: ${input.displayName}`,
       creationContext: {
         creator:
           input.creatorType === "group"

@@ -30,56 +30,60 @@ export function UploadQueue({
 }: UploadQueueProps) {
   const total = items.length;
   const hasFailed = items.some((item) => item.status === "failed");
+  const waitingCount = items.filter((item) => item.status === "waiting").length;
 
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-5 shadow-lg shadow-black/20">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <section className="panel h-full">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-zinc-100">Upload Queue</h2>
-          <p className="text-sm text-zinc-400">
-            {completedCount} / {total} complete
-            {etaLabel ? ` - ETA ${etaLabel}` : ""}
+          <h2 className="font-display text-lg text-[var(--text-primary)]">Queue</h2>
+          <p className="mt-1 font-mono text-xs text-[var(--text-muted)]">
+            {completedCount}/{total} finished
+            {waitingCount > 0 ? ` · ${waitingCount} waiting` : ""}
+            {etaLabel ? ` · ~${etaLabel} left` : ""}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            className="rounded-md bg-blue-600 px-3 py-2 text-sm text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-primary"
             onClick={onStart}
-            disabled={isRunning || total === 0}
+            disabled={isRunning || waitingCount === 0}
           >
-            {isRunning ? "Uploading..." : "Start Upload"}
+            {isRunning ? "Running…" : "Start batch"}
           </button>
           <button
             type="button"
-            className="rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-secondary"
             onClick={onRetryFailed}
             disabled={isRunning || !hasFailed}
           >
-            Retry Failed
+            Retry errors
           </button>
           <button
             type="button"
-            className="rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-secondary"
             onClick={onClearFinished}
             disabled={isRunning}
           >
-            Clear Finished
+            Clear done
           </button>
         </div>
       </div>
 
-      <div className="mb-4 h-2 overflow-hidden rounded-full bg-zinc-800">
+      <div className="progress-track mb-4">
         <div
-          className="h-full rounded-full bg-blue-500 transition-all duration-300"
+          className={["progress-fill", isRunning ? "progress-fill-animated" : ""].join(
+            " ",
+          )}
           style={{ width: `${progressPercent}%` }}
         />
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-6 text-center text-sm text-zinc-500">
-          Add files to build your queue.
+        <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface-inset)] p-8 text-center text-sm text-[var(--text-muted)]">
+          Queue is empty — add images on the left.
         </div>
       ) : (
         <div className="max-h-[34rem] space-y-2 overflow-y-auto pr-1">

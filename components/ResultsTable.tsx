@@ -52,18 +52,18 @@ export function ResultsTable({ items }: ResultsTableProps) {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `roblox-upload-results-${Date.now()}.json`;
+    anchor.download = `rblxuploads-${Date.now()}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
 
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-5 shadow-lg shadow-black/20">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <section className="panel">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-zinc-100">Results</h2>
-          <p className="text-sm text-zinc-400">
-            {completed.length} completed / {finished.length} finished
+          <h2 className="font-display text-lg text-[var(--text-primary)]">Output</h2>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            {completed.length} succeeded · {finished.length - completed.length} failed
           </p>
         </div>
 
@@ -72,15 +72,15 @@ export function ResultsTable({ items }: ResultsTableProps) {
             type="button"
             onClick={copyAll}
             disabled={!completedWithIds.length}
-            className="rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-secondary"
           >
-            Copy Names + IDs
+            Copy all IDs
           </button>
           <button
             type="button"
             onClick={exportJson}
             disabled={!finished.length}
-            className="rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-secondary"
           >
             Export JSON
           </button>
@@ -88,54 +88,53 @@ export function ResultsTable({ items }: ResultsTableProps) {
       </div>
 
       {finished.length === 0 ? (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-6 text-center text-sm text-zinc-500">
-          Completed and failed uploads will appear here.
+        <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface-inset)] p-8 text-center text-sm text-[var(--text-muted)]">
+          Finished uploads land here with copyable asset IDs.
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full border-separate border-spacing-y-2 text-sm">
+          <table className="min-w-full text-sm">
             <thead>
-              <tr className="text-left text-zinc-400">
-                <th className="px-3">Preview</th>
-                <th className="px-3">Name</th>
-                <th className="px-3">Asset ID</th>
-                <th className="px-3">Status</th>
-                <th className="px-3">Action</th>
+              <tr className="border-b border-[var(--border-subtle)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+                <th className="px-3 py-2 font-medium">Thumb</th>
+                <th className="px-3 py-2 font-medium">Name</th>
+                <th className="px-3 py-2 font-medium">ID</th>
+                <th className="px-3 py-2 font-medium">State</th>
+                <th className="px-3 py-2 font-medium" />
               </tr>
             </thead>
             <tbody>
               {finished.map((item) => (
-                <tr key={item.id} className="rounded-md bg-zinc-950/70 text-zinc-200">
-                  <td className="px-3 py-2">
+                <tr
+                  key={item.id}
+                  className="border-b border-[var(--border-subtle)] text-[var(--text-secondary)] last:border-0"
+                >
+                  <td className="px-3 py-2.5">
                     <img
                       src={item.previewUrl}
                       alt={item.assetName}
-                      className="h-10 w-10 rounded border border-zinc-800 object-cover"
+                      className="h-9 w-9 rounded border border-[var(--border)] object-cover"
                     />
                   </td>
-                  <td className="px-3 py-2">{item.assetName}</td>
-                  <td className="px-3 py-2 font-mono text-xs text-zinc-300">
-                    {item.assetId ? `rbxassetid://${item.assetId}` : "-"}
+                  <td className="px-3 py-2.5 text-[var(--text-primary)]">{item.assetName}</td>
+                  <td className="px-3 py-2.5 font-mono text-xs">
+                    {item.assetId ? `rbxassetid://${item.assetId}` : "—"}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2.5">
                     {item.status === "complete" ? (
-                      <span className="rounded bg-emerald-600/80 px-2 py-0.5 text-xs text-emerald-50">
-                        Completed
-                      </span>
+                      <span className="status-chip status-complete">Done</span>
                     ) : (
-                      <span className="rounded bg-rose-600/80 px-2 py-0.5 text-xs text-rose-50">
-                        Failed
-                      </span>
+                      <span className="status-chip status-failed">Failed</span>
                     )}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2.5">
                     <button
                       type="button"
                       onClick={() => copyOne(item.assetId)}
                       disabled={!item.assetId}
-                      className="rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="btn-secondary px-2 py-1 text-xs"
                     >
-                      Copy ID
+                      Copy
                     </button>
                   </td>
                 </tr>

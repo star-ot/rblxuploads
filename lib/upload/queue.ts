@@ -1,3 +1,8 @@
+/**
+ * Simple concurrency-limited worker pool for batch uploads.
+ * Runs entirely in the browser — only individual upload requests hit the server.
+ */
+
 interface QueueOptions<T> {
   items: T[];
   concurrency: number;

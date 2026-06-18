@@ -5,6 +5,10 @@ interface UploadClientOptions {
   config: UploadConfig;
 }
 
+/**
+ * Sends one image to the local /api/upload proxy.
+ * The API key travels only to your own Next.js server, which forwards it to Roblox.
+ */
 export async function uploadImageAsset({
   item,
   config,
@@ -15,13 +19,6 @@ export async function uploadImageAsset({
   formData.append("creatorId", config.creatorId.trim());
   formData.append("creatorType", config.creatorType);
   formData.append("apiKey", config.apiKey.trim());
-
-  if (config.publicBlobReadWriteToken.trim()) {
-    formData.append(
-      "publicBlobReadWriteToken",
-      config.publicBlobReadWriteToken.trim(),
-    );
-  }
 
   const response = await fetch("/api/upload", {
     method: "POST",

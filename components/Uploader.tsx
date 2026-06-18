@@ -16,26 +16,23 @@ export function Uploader({ disabled = false, onFilesAdded }: UploaderProps) {
       return;
     }
 
-    const files = Array.from(fileList);
-    onFilesAdded(files);
+    onFilesAdded(Array.from(fileList));
   }
 
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-5 shadow-lg shadow-black/20">
+    <section className="panel h-full">
       <div className="mb-4">
-        <h2 className="text-base font-semibold text-zinc-100">Image Upload</h2>
-        <p className="text-sm text-zinc-400">
-          Drag and drop many images or pick files manually.
+        <h2 className="font-display text-lg text-[var(--text-primary)]">Add images</h2>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
+          PNG, JPG, JPEG, WEBP — drop a whole folder if you like.
         </p>
       </div>
 
       <div
         className={[
-          "flex min-h-36 flex-col items-center justify-center rounded-lg border border-dashed px-4 py-6 text-center transition",
-          dragActive
-            ? "border-blue-500 bg-blue-500/10"
-            : "border-zinc-700 bg-zinc-950/50",
-          disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+          "drop-zone",
+          dragActive ? "drop-zone-active" : "",
+          disabled ? "cursor-not-allowed opacity-55" : "cursor-pointer",
         ].join(" ")}
         onDragOver={(event) => {
           event.preventDefault();
@@ -59,20 +56,22 @@ export function Uploader({ disabled = false, onFilesAdded }: UploaderProps) {
           }
         }}
       >
-        <p className="text-sm text-zinc-200">
-          Drop PNG, JPG, JPEG, WEBP files here
+        <p className="text-sm text-[var(--text-secondary)]">
+          {dragActive ? "Release to queue files" : "Drag files here"}
         </p>
-        <p className="mt-1 text-xs text-zinc-500">Supports 50+ files per batch</p>
+        <p className="mt-1 font-mono text-[11px] text-[var(--text-muted)]">
+          or browse manually
+        </p>
         <button
           type="button"
-          className="mt-4 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 transition hover:bg-zinc-700 disabled:cursor-not-allowed"
+          className="btn-secondary mt-4"
           disabled={disabled}
           onClick={(event) => {
             event.stopPropagation();
             inputRef.current?.click();
           }}
         >
-          Choose Files
+          Choose files
         </button>
       </div>
 

@@ -7,11 +7,11 @@ export type UploadStatus =
 
 export type CreatorType = "user" | "group";
 
+/** User-editable settings persisted in browser localStorage only. */
 export interface UploadConfig {
   apiKey: string;
   creatorId: string;
   creatorType: CreatorType;
-  publicBlobReadWriteToken: string;
   concurrency: number;
   maxRetries: number;
 }

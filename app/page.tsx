@@ -1,49 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AppFooter } from "@/components/layout/AppFooter";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { Uploader } from "@/components/Uploader";
 import { UploadQueue } from "@/components/UploadQueue";
 import { ResultsTable } from "@/components/ResultsTable";
+import { usePersistedConfig } from "@/hooks/usePersistedConfig";
 import { getUnsupportedReason, isSupportedImageFile } from "@/lib/file-parser";
 import { formatRobloxAssetName } from "@/lib/name-formatter";
-import { runQueue } from "@/lib/queue-manager";
-import type { UploadConfig, UploadQueueItem } from "@/lib/types";
-import { uploadImageAsset } from "@/lib/upload-client";
-
-const STORAGE_KEY = "roblox-asset-uploader-config-v1";
-
-const DEFAULT_CONFIG: UploadConfig = {
-  apiKey: "",
-  creatorId: "",
-  creatorType: "user",
-  publicBlobReadWriteToken: "",
-  concurrency: 4,
-  maxRetries: 2,
-};
+import { runQueue } from "@/lib/upload/queue";
+import type { UploadQueueItem } from "@/lib/types";
+import { uploadImageAsset } from "@/lib/upload/client";
 
 export default function Home() {
-  const [config, setConfig] = useState<UploadConfig>(() => {
-    if (typeof window === "undefined") {
-      return DEFAULT_CONFIG;
-    }
-
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        return DEFAULT_CONFIG;
-      }
-
-      const saved = JSON.parse(raw) as Partial<UploadConfig>;
-      return {
-        ...DEFAULT_CONFIG,
-        ...saved,
-      };
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
-      return DEFAULT_CONFIG;
-    }
-  });
+  const [config, setConfig] = usePersistedConfig();
   const [items, setItems] = useState<UploadQueueItem[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -54,10 +26,6 @@ export default function Home() {
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-  }, [config]);
 
   useEffect(() => {
     if (!isRunning) {
@@ -186,12 +154,12 @@ export default function Home() {
     }
 
     if (!config.apiKey.trim()) {
-      setStatusMessage("Enter a Roblox Open Cloud API key in configuration.");
+      setStatusMessage("Add your Roblox Open Cloud API key under Credentials.");
       return;
     }
 
     if (!config.creatorId.trim() || !/^\d+$/.test(config.creatorId.trim())) {
-      setStatusMessage("Creator ID must be a numeric value.");
+      setStatusMessage("Creator ID must be a numeric Roblox user or group ID.");
       return;
     }
 
@@ -200,7 +168,7 @@ export default function Home() {
       .map((item) => item.id);
 
     if (targetIds.length === 0) {
-      setStatusMessage("No waiting files in queue.");
+      setStatusMessage("Nothing waiting in the queue.");
       return;
     }
 
@@ -260,7 +228,7 @@ export default function Home() {
                 status: shouldRetry ? "waiting" : "failed",
                 progress: shouldRetry ? 0 : 100,
                 error: shouldRetry
-                  ? `Retrying (${attempt}/${config.maxRetries + 1}) - ${message}`
+                  ? `Retrying (${attempt}/${config.maxRetries + 1}) — ${message}`
                   : message,
               }));
 
@@ -277,26 +245,13 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 md:px-8">
-        <header className="space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-            Roblox Open Cloud Asset Uploader
-          </h1>
-          <p className="max-w-3xl text-sm text-zinc-400">
-            Batch upload game icons and sprites as Roblox Image assets using a
-            controlled queue with retry and live status tracking.
-          </p>
-          {statusMessage ? (
-            <p className="rounded-md border border-rose-800 bg-rose-950/40 px-3 py-2 text-sm text-rose-300">
-              {statusMessage}
-            </p>
-          ) : null}
-        </header>
+    <div className="app-backdrop flex min-h-screen flex-col">
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-8 md:px-8">
+        <AppHeader statusMessage={statusMessage} />
 
         <SettingsPanel config={config} onChange={setConfig} disabled={isRunning} />
 
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_1.4fr]">
+        <div className="grid gap-5 lg:grid-cols-[1fr_1.15fr]">
           <Uploader disabled={isRunning} onFilesAdded={addFiles} />
           <UploadQueue
             items={items}
@@ -317,18 +272,25 @@ export default function Home() {
           />
         </div>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4 text-sm text-zinc-300">
-          <span className="text-zinc-100">{summary.activeCount}</span> uploading now,
-          {" "}
-          <span className="text-zinc-100">{summary.completeCount}</span> completed,
-          {" "}
-          <span className="text-zinc-100">{summary.failedCount}</span> failed,
-          {" "}
-          <span className="text-zinc-100">{summary.total}</span> total.
+        <div className="panel flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs text-[var(--text-muted)]">
+          <span>
+            active <span className="text-[var(--accent)]">{summary.activeCount}</span>
+          </span>
+          <span>
+            done <span className="text-[var(--success-text)]">{summary.completeCount}</span>
+          </span>
+          <span>
+            failed <span className="text-[var(--danger-text)]">{summary.failedCount}</span>
+          </span>
+          <span>
+            total <span className="text-[var(--text-secondary)]">{summary.total}</span>
+          </span>
         </div>
 
         <ResultsTable items={items} />
       </main>
+
+      <AppFooter />
     </div>
   );
 }

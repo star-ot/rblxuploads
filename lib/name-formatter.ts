@@ -1,5 +1,10 @@
+/** Roblox display names are capped — keep filenames within this limit. */
 const MAX_NAME_LENGTH = 60;
 
+/**
+ * Turns a raw filename into a Roblox-friendly display name.
+ * Strips extension, normalizes separators, and title-cases words.
+ */
 export function formatRobloxAssetName(input: string): string {
   const rawBase = input.replace(/\.[^.]+$/, "");
 

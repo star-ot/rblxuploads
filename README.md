@@ -1,115 +1,97 @@
-# Roblox Open Cloud Asset Uploader
+# RblxUploads
 
-Modern Next.js tool for batch uploading images to Roblox Open Cloud as **Image** assets (not Decals), with queueing, retry handling, and live per-file status.
+**Made by [StarVSK](https://github.com/star-ot)**
+
+Local batch uploader for Roblox Open Cloud **Image** assets. Queue dozens of PNGs, name them, upload with controlled concurrency, and copy the resulting `rbxassetid://` values.
+
+Runs entirely on your machine. The only outbound network traffic is to `apis.roblox.com` when you start a batch.
 
 ## Features
 
-- Batch image uploads (50+ files): drag-and-drop and file picker
-- Supported file types: `PNG`, `JPG`, `JPEG`, `WEBP`
-- Automatic filename-to-Roblox name formatting (editable before upload)
-- Controlled concurrency queue with retries and fault tolerance
-- Per-item status tracking: `Waiting`, `Uploading`, `Processing`, `Complete`, `Failed`
-- Results table with per-item copy, bulk copy (names + IDs), and JSON export
-- Server-side upload proxy route for Roblox API requests (`/api/upload`)
+- Drag-and-drop or file-picker batch uploads (PNG, JPG, JPEG, WEBP)
+- Automatic filename → Roblox display name formatting (editable per file)
+- Concurrency-limited queue with retries
+- Per-item status: Queued → Sending → Roblox → Done / Error
+- Copy individual IDs, copy all, or export JSON results
+- Credentials stored in browser `localStorage` only
 
-## Tech Stack
-
-- [Next.js](https://nextjs.org/) (App Router)
-- React + TypeScript
-- Tailwind CSS
-- Roblox Open Cloud Assets API
-
-## Quick Start
+## Quick start
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000), paste your Open Cloud API key and creator ID, add images, and hit **Start batch**.
+
+No `.env` file is required.
 
 ## Configuration
 
-You can configure the uploader in-app from the **Configuration** panel:
+All settings live in the in-app **Credentials** panel and persist in `localStorage`:
 
-- `Roblox Open Cloud API Key`
-- `Creator ID`
-- `Creator Type` (`user` or `group`)
-- `PUBLIC_BLOB_READ_WRITE_TOKEN` (stored for workflow compatibility)
-- Queue tuning (`Concurrency`, `Max Retries`)
+| Field | Description |
+| --- | --- |
+| Open Cloud API key | From [create.roblox.com/dashboard/credentials](https://create.roblox.com/dashboard/credentials) |
+| Creator ID | Numeric user or group ID that owns the assets |
+| Creator type | `user` or `group` |
+| Parallel uploads | 1–10 concurrent requests |
+| Retry attempts | 0–5 retries per failed file |
 
-Settings are persisted in browser `localStorage`.
+## Security model
 
-### Optional environment variable
+This app is designed for local, open-source use:
 
-You may provide a server-side fallback API key:
+- **No server-side credential storage** — no `.env` fallbacks, no database, no Vercel Blob
+- **No telemetry** — no analytics, no external fonts, no CDN dependencies
+- **API keys stay in your browser** until you upload; they are sent per-request to your local Next.js server, which proxies to Roblox (required because Roblox blocks direct browser CORS calls)
+- **Never commit real API keys** — `.env*` is gitignored; rotate any key that was ever shared
 
-```env
-ROBLOX_OPEN_CLOUD_API_KEY=your_key_here
-```
+## Roblox API flow
 
-If this is set, the server route can use it as a fallback when no key is provided from the UI.
+1. Browser sends image + metadata to `POST /api/upload` (local)
+2. Server forwards multipart request to `POST https://apis.roblox.com/assets/v1/assets`
+3. Server polls `GET …/operations/{operationId}` until complete
+4. `assetId` returns to the browser; queue UI updates live
 
-## Security Notes (Important for Open Source)
+Assets are created with `assetType: "Image"`.
 
-- Never commit real API keys or tokens.
-- Rotate any credentials that have ever been committed or shared.
-- Keep `.env` out of version control and provide only a `.env.example` with placeholders.
-- Roblox upload calls are proxied through server routes to avoid direct client-to-Roblox API calls.
-
-## Roblox API Flow
-
-1. Client sends image + metadata to `POST /api/upload`
-2. Server sends multipart request to `POST https://apis.roblox.com/assets/v1/assets`
-3. Server polls `GET https://apis.roblox.com/assets/v1/operations/{operationId}`
-4. Server returns `assetId` to client
-5. UI updates queue state and results table without refresh
-
-Assets are created as:
-
-- `assetType: "Image"`
-
-## Project Structure
+## Project structure
 
 ```text
 app/
-  api/upload/route.ts      # secure server upload proxy
-  page.tsx                 # main app UI and queue orchestration
+  api/upload/route.ts       # local proxy — sole external network caller
+  page.tsx                  # queue orchestration
+  globals.css               # StarVSK theme (system fonts only)
 components/
+  layout/                   # header + footer
   SettingsPanel.tsx
   Uploader.tsx
   UploadQueue.tsx
-  ResultsTable.tsx
   AssetCard.tsx
+  ResultsTable.tsx
+hooks/
+  usePersistedConfig.ts     # localStorage sync
 lib/
-  roblox-client.ts         # Roblox API create + poll logic
-  queue-manager.ts         # controlled concurrency processing
-  upload-client.ts         # browser -> /api/upload client helper
-  file-parser.ts           # supported type checks
-  name-formatter.ts        # filename -> Roblox-friendly name
-  types.ts                 # shared types
+  config/                   # constants + storage helpers
+  roblox/client.ts          # Open Cloud create + poll (server-only)
+  upload/                   # browser client + concurrency queue
+  file-parser.ts
+  name-formatter.ts
+  types.ts
 ```
 
 ## Scripts
 
-- `npm run dev` - start local development server
-- `npm run lint` - run ESLint
-- `npm run build` - build production app
-- `npm run start` - serve production build
-
-## Known Notes
-
-- `PUBLIC_BLOB_READ_WRITE_TOKEN` is captured in settings for compatibility with broader workflows, but current upload flow is Roblox Open Cloud direct via the server route.
-- Next.js version in this repo may include breaking changes vs older docs; verify against your installed version when extending.
-
-## Contributing
-
-Issues and PRs are welcome. Please include:
-
-- clear reproduction steps for bugs
-- expected vs actual behavior
-- screenshots/GIFs for UI issues when possible
+- `npm run dev` — local dev server
+- `npm run build` — production build
+- `npm run start` — serve production build
+- `npm run lint` — ESLint
 
 ## License
 
-Add your preferred license before publishing (for example MIT).
+MIT — see [LICENSE](LICENSE) (add before publishing if not present).
+
+## Contributing
+
+Issues and PRs welcome. Include reproduction steps and expected vs actual behavior for bugs.

@@ -49,21 +49,27 @@ export function SettingsPanel({
       {expanded ? (
         <div className="grid gap-4 md:grid-cols-2">
           <label className="flex flex-col gap-1.5 md:col-span-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-start justify-between gap-2">
               <span className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
                 Open Cloud API key
               </span>
-              <a
-                href={ROBLOX_CREDENTIALS_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="cred-link"
-              >
-                Get key on Creator Dashboard
-                <span className="cred-link-icon" aria-hidden>
-                  ↗
-                </span>
-              </a>
+              <div className="flex flex-col items-end gap-1">
+                <a
+                  href={ROBLOX_CREDENTIALS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cred-link"
+                >
+                  Get key on Creator Dashboard
+                  <span className="cred-link-icon" aria-hidden>
+                    ↗
+                  </span>
+                </a>
+                <p className="field-hint">
+                  When creating the key, enable the <strong>asset</strong> permission
+                  scope — uploads fail without it.
+                </p>
+              </div>
             </div>
             <div className="flex gap-2">
               <input

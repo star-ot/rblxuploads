@@ -22,7 +22,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), paste your Open Cloud API key and creator ID, add images, and hit **Start batch**.
+Open [http://localhost:3000](http://localhost:3000), create an Open Cloud API key with the **asset** permission scope, paste it in **Credentials** along with your creator ID, add images, and hit **Start batch**.
 
 No `.env` file is required.
 
@@ -32,11 +32,13 @@ All settings live in the in-app **Credentials** panel and persist in `localStora
 
 | Field | Description |
 | --- | --- |
-| Open Cloud API key | From [create.roblox.com/dashboard/credentials](https://create.roblox.com/dashboard/credentials) |
+| Open Cloud API key | From [create.roblox.com/dashboard/credentials](https://create.roblox.com/dashboard/credentials) — must include the **asset** permission scope |
 | Creator ID | Numeric user or group ID that owns the assets |
 | Creator type | `user` or `group` |
 | Parallel uploads | 1–10 concurrent requests |
 | Retry attempts | 0–5 retries per failed file |
+
+When creating your API key on the Creator Dashboard, enable the **asset** scope. This app uploads Image assets via the Open Cloud Assets API; keys without that permission will return authorization errors and uploads will fail.
 
 ## Security model
 
@@ -90,7 +92,7 @@ lib/
 
 ## License
 
-MIT — see [LICENSE](LICENSE) (add before publishing if not present).
+[MIT](LICENSE) — Copyright (c) 2026 StarVSK
 
 ## Contributing
 

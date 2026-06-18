@@ -123,6 +123,37 @@ body {
   color: var(--text-primary);
 }
 
+.cred-link {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--accent-secondary) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent-secondary) 8%, var(--surface-inset));
+  padding: 0.2rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent-secondary);
+  text-decoration: none;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.cred-link:hover {
+  border-color: color-mix(in srgb, var(--accent-secondary) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent-secondary) 14%, var(--surface-inset));
+  color: #7eddd0;
+}
+
+.cred-link-icon {
+  font-size: 0.65rem;
+  opacity: 0.85;
+}
+
 .field-input {
   width: 100%;
   border-radius: 8px;

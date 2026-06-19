@@ -3,11 +3,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  bulkUpsertLocalFolders,
   bulkUpsertLocalAssets,
+  deleteLocalFolderTree,
   getRootFolderPath,
   listLocalAssets,
   listLocalFolders,
   normalizeFolderPath,
+  renameLocalFolderTree,
   removeLocalAssets,
   upsertLocalAsset,
   upsertLocalFolder,
@@ -47,7 +50,9 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
   const [sortKey, setSortKey] = useState<SortKey>("newest");
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
   const [selectedFolder, setSelectedFolder] = useState(ROOT_FOLDER);
-  const [newFolderPath, setNewFolderPath] = useState("");
+  const [newFolderParent, setNewFolderParent] = useState(ROOT_FOLDER);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [renameFolderPath, setRenameFolderPath] = useState(ROOT_FOLDER);
   const [bulkTagInput, setBulkTagInput] = useState("");
   const [managerStatus, setManagerStatus] = useState("");
   const [targetModelAssetId, setTargetModelAssetId] = useState("");
@@ -185,11 +190,18 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
     setFolders(nextFolders);
   }
 
-  async function createFolder() {
-    const normalized = normalizeFolderPath(newFolderPath);
+  async function createFolder(parentOverride?: string) {
+    if (!newFolderName.trim()) {
+      setManagerStatus("Enter a folder name first.");
+      return;
+    }
+
+    const parent = parentOverride ? normalizeFolderPath(parentOverride) : newFolderParent;
+    const normalized = normalizeFolderPath(`${parent}/${newFolderName}`);
     await upsertLocalFolder(normalized);
-    setNewFolderPath("");
+    setNewFolderName("");
     setSelectedFolder(normalized);
+    setRenameFolderPath(normalized);
     setFolderFilter(normalized);
     setExpandedFolderPaths((current) => {
       const next = new Set(current);
@@ -217,6 +229,8 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
   function selectFolder(folderPath: string) {
     setFolderFilter(folderPath);
     setSelectedFolder(folderPath);
+    setNewFolderParent(folderPath);
+    setRenameFolderPath(folderPath);
     setExpandedFolderPaths((current) => {
       const next = new Set(current);
       for (const ancestor of getFolderAncestors(folderPath)) {
@@ -224,6 +238,75 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
       }
       return next;
     });
+  }
+
+  async function renameSelectedFolder() {
+    const source = normalizeFolderPath(selectedFolder);
+    const target = normalizeFolderPath(renameFolderPath);
+
+    if (source === ROOT_FOLDER) {
+      setManagerStatus("Select a subfolder to rename.");
+      return;
+    }
+    if (!renameFolderPath.trim()) {
+      setManagerStatus("Enter a target folder path first.");
+      return;
+    }
+    if (source === target) {
+      setManagerStatus("Folder path did not change.");
+      return;
+    }
+
+    try {
+      const result = await renameLocalFolderTree(source, target);
+      await refreshLibrary();
+      setSelectedFolder(target);
+      setFolderFilter(target);
+      setRenameFolderPath(target);
+      setExpandedFolderPaths((current) => {
+        const next = new Set(current);
+        for (const ancestor of getFolderAncestors(target)) {
+          next.add(ancestor);
+        }
+        return next;
+      });
+      setManagerStatus(
+        `Renamed ${result.renamedFolders} folders and moved ${result.movedAssets} assets to ${target}.`,
+      );
+    } catch (error) {
+      setManagerStatus(error instanceof Error ? error.message : "Folder rename failed.");
+    }
+  }
+
+  async function deleteSelectedFolder() {
+    const target = normalizeFolderPath(selectedFolder);
+    if (target === ROOT_FOLDER) {
+      setManagerStatus("Root folder cannot be deleted.");
+      return;
+    }
+
+    try {
+      const result = await deleteLocalFolderTree(target);
+      await refreshLibrary();
+      setSelectedFolder(ROOT_FOLDER);
+      setRenameFolderPath(ROOT_FOLDER);
+      setFolderFilter(ALL_FOLDERS_OPTION);
+      setManagerStatus(
+        `Deleted ${result.deletedFolders} folders. Moved ${result.movedAssets} assets to ${result.movedTo}.`,
+      );
+    } catch (error) {
+      setManagerStatus(error instanceof Error ? error.message : "Folder delete failed.");
+    }
+  }
+
+  function clearFilters() {
+    setSearch("");
+    setTagFilter("");
+    setTypeFilter("all");
+    setSortKey("newest");
+    setFolderFilter(ALL_FOLDERS_OPTION);
+    setSelectedFolder(ROOT_FOLDER);
+    setRenameFolderPath(ROOT_FOLDER);
   }
 
   async function moveSelected() {
@@ -283,13 +366,14 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
 
   function exportAssets(
     selected: LocalAssetRecord[],
+    selectedFolders: string[],
     format: "json" | "csv",
     label: string,
   ) {
     const payload: LocalAssetExportPayload = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       exportedAt: new Date().toISOString(),
-      folders: Array.from(new Set(selected.map((asset) => asset.folderPath))),
+      folders: selectedFolders,
       assets: selected,
     };
 
@@ -306,6 +390,7 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
           "type",
           "assetId",
           "assetUri",
+          "thumbnailDataUrl",
           "fileName",
           "folderPath",
           "tags",
@@ -318,6 +403,7 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
           asset.type,
           asset.assetId,
           asset.assetUri,
+          asset.thumbnailDataUrl ?? "",
           asset.fileName,
           asset.folderPath,
           asset.tags.join("|"),
@@ -354,36 +440,41 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
       setManagerStatus("Select at least one asset to export.");
       return;
     }
-    exportAssets(selected, format, "assets");
+    const selectedFolders = getFoldersFromAssets(selected);
+    exportAssets(selected, selectedFolders, format, "assets");
   }
 
   function exportFolderSelection(format: "json" | "csv") {
-    const fromFolder = assets.filter((asset) => asset.folderPath === selectedFolder);
-    if (!fromFolder.length) {
-      setManagerStatus(`No assets in ${selectedFolder} to export.`);
+    const scopedFolders = getFolderSubtree(selectedFolder, folderPaths);
+    const scopedAssets = assets.filter(
+      (asset) =>
+        asset.folderPath === selectedFolder ||
+        asset.folderPath.startsWith(`${selectedFolder}/`),
+    );
+    if (!scopedAssets.length && !scopedFolders.length) {
+      setManagerStatus(`No folders or assets in ${selectedFolder} to export.`);
       return;
     }
-    exportAssets(fromFolder, format, `assets from ${selectedFolder}`);
+    exportAssets(scopedAssets, scopedFolders, format, `content from ${selectedFolder}`);
   }
 
   async function importLibrary(file: File) {
     try {
       const text = await file.text();
-      const imported = file.name.toLowerCase().endsWith(".csv")
-        ? parseCsvImport(text)
+      const parsedImport = file.name.toLowerCase().endsWith(".csv")
+        ? { assets: parseCsvImport(text), folders: [] as string[] }
         : parseJsonImport(text);
-
-      if (!imported.length) {
-        setManagerStatus("No importable assets were found in the selected file.");
-        return;
-      }
+      const imported = parsedImport.assets;
+      const importedFolders = parsedImport.folders;
 
       const normalized = imported
         .filter((asset): asset is Partial<LocalAssetRecord> & { name: string; assetId: string } =>
           Boolean(asset.name && asset.assetId),
         )
         .map((asset) => ({
-          id: asset.id || crypto.randomUUID(),
+          // Imports are additive only: always allocate a fresh local record id
+          // so existing library entries are never overwritten.
+          id: crypto.randomUUID(),
           name: asset.name,
           type: normalizeImportedType(asset.type),
           assetId: asset.assetId,
@@ -397,14 +488,19 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
           updatedAt: Date.now(),
         }));
 
-      if (!normalized.length) {
-        setManagerStatus("Import file was valid but had no assets with name + assetId.");
+      if (!normalized.length && !importedFolders.length) {
+        setManagerStatus("No importable folders or assets were found in the selected file.");
         return;
       }
 
+      if (importedFolders.length) {
+        await bulkUpsertLocalFolders(importedFolders);
+      }
       await bulkUpsertLocalAssets(normalized);
       await refreshLibrary();
-      setManagerStatus(`Imported ${normalized.length} assets from ${file.name}.`);
+      setManagerStatus(
+        `Imported ${normalized.length} assets and ${importedFolders.length} folders from ${file.name}.`,
+      );
     } catch {
       setManagerStatus(
         "Import failed. Use a JSON export payload or CSV with matching columns.",
@@ -480,19 +576,24 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_auto]">
         <input
           className="field-input"
-          placeholder="Search name, id, folder, tags…"
+          placeholder="Search name, id, folder path, file, tags..."
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
         <input
           className="field-input"
-          placeholder="Filter by tag"
+          placeholder="Tag contains..."
           value={tagFilter}
           onChange={(event) => setTagFilter(event.target.value)}
         />
+        <div className="flex gap-2">
+          <button type="button" className="btn-secondary" onClick={clearFilters}>
+            Reset filters
+          </button>
+        </div>
         <select
           className="field-input"
           value={typeFilter}
@@ -517,22 +618,67 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
         </select>
       </div>
 
-      <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-3 grid gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="flex flex-col gap-1 md:col-span-2 xl:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-medium text-[var(--text-secondary)]">Create folder</p>
+            <p className="text-[11px] text-[var(--text-muted)]">
+              <span className="font-mono">
+                {normalizeFolderPath(`${newFolderParent}/${newFolderName || "..."}`)}
+              </span>
+            </p>
+          </div>
+          <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
+            <select
+              className="field-input"
+              value={newFolderParent}
+              onChange={(event) => setNewFolderParent(event.target.value)}
+            >
+              {folderPaths.map((folder) => (
+                <option key={folder} value={folder}>
+                  Parent: {folder}
+                </option>
+              ))}
+            </select>
+            <input
+              className="field-input"
+              placeholder="Folder name"
+              value={newFolderName}
+              onChange={(event) => setNewFolderName(event.target.value)}
+            />
+            <button type="button" className="btn-secondary" onClick={() => createFolder()}>
+              Create
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => createFolder(ROOT_FOLDER)}
+            >
+              + Root
+            </button>
+          </div>
+        </div>
         <div className="flex gap-2">
           <input
             className="field-input"
-            placeholder="New subfolder (e.g. Library/Pack/VFX)"
-            value={newFolderPath}
-            onChange={(event) => setNewFolderPath(event.target.value)}
+            placeholder="Rename selected folder path"
+            value={renameFolderPath}
+            onChange={(event) => setRenameFolderPath(event.target.value)}
+            disabled={selectedFolder === ROOT_FOLDER}
           />
-          <button type="button" className="btn-secondary" onClick={createFolder}>
-            Add
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={renameSelectedFolder}
+            disabled={selectedFolder === ROOT_FOLDER}
+          >
+            Rename
           </button>
         </div>
         <select
           className="field-input"
           value={selectedFolder}
-          onChange={(event) => setSelectedFolder(event.target.value)}
+          onChange={(event) => selectFolder(event.target.value)}
         >
           {folderPaths.map((folder) => (
             <option key={folder} value={folder}>
@@ -553,7 +699,7 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 grid gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 md:grid-cols-2 xl:grid-cols-4">
         <button type="button" className="btn-secondary" onClick={moveSelected}>
           Move selected ({selectedCount})
         </button>
@@ -584,6 +730,14 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
         >
           Import JSON/CSV
         </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={deleteSelectedFolder}
+          disabled={selectedFolder === ROOT_FOLDER}
+        >
+          Delete folder subtree
+        </button>
         <button type="button" className="btn-secondary" onClick={deleteSelected}>
           Delete selected
         </button>
@@ -610,6 +764,9 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
         <aside className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-2">
           <p className="px-2 pb-2 text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
             Explorer
+          </p>
+          <p className="px-2 pb-2 text-[11px] text-[var(--text-muted)]">
+            Select a folder, then use <span className="font-medium">Create nested folder</span>.
           </p>
           <button
             type="button"
@@ -896,14 +1053,25 @@ function getFolderAncestors(folderPath: string): string[] {
   return ancestors;
 }
 
-function parseJsonImport(text: string): Partial<LocalAssetRecord>[] {
+function parseJsonImport(text: string): {
+  assets: Partial<LocalAssetRecord>[];
+  folders: string[];
+} {
   const parsed = JSON.parse(text) as
     | LocalAssetExportPayload
     | Array<Partial<LocalAssetRecord>>;
   if (Array.isArray(parsed)) {
-    return parsed;
+    return {
+      assets: parsed,
+      folders: [],
+    };
   }
-  return Array.isArray(parsed.assets) ? parsed.assets : [];
+  return {
+    assets: Array.isArray(parsed.assets) ? parsed.assets : [],
+    folders: Array.isArray(parsed.folders)
+      ? parsed.folders.map((folder) => normalizeFolderPath(String(folder)))
+      : [],
+  };
 }
 
 function normalizeImportedType(type: string | undefined): AssetType {
@@ -939,6 +1107,7 @@ function parseCsvImport(text: string): Partial<LocalAssetRecord>[] {
       type: (get("type") || "Image") as AssetType,
       assetId,
       assetUri: get("assetUri"),
+      thumbnailDataUrl: get("thumbnailDataUrl") || undefined,
       fileName: get("fileName"),
       folderPath: get("folderPath"),
       tags: get("tags")
@@ -994,6 +1163,24 @@ function getAssetTypeGlyph(type: AssetType): string {
     default:
       return "I";
   }
+}
+
+function getFoldersFromAssets(records: LocalAssetRecord[]): string[] {
+  const unique = new Set<string>([ROOT_FOLDER]);
+  for (const asset of records) {
+    for (const ancestor of getFolderAncestors(asset.folderPath)) {
+      unique.add(ancestor);
+    }
+  }
+  return Array.from(unique).sort((a, b) => a.localeCompare(b));
+}
+
+function getFolderSubtree(rootFolder: string, allFolders: string[]): string[] {
+  const root = normalizeFolderPath(rootFolder);
+  const scoped = allFolders.filter(
+    (folder) => folder === root || folder.startsWith(`${root}/`),
+  );
+  return Array.from(new Set(scoped)).sort((a, b) => a.localeCompare(b));
 }
 
 async function createImageThumbnailDataUrl(file: File): Promise<string | undefined> {

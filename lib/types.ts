@@ -59,7 +59,7 @@ export interface LocalAssetRecord {
 }
 
 export interface LocalAssetExportPayload {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   exportedAt: string;
   folders: string[];
   assets: LocalAssetRecord[];

@@ -24,7 +24,7 @@ export function Uploader({ disabled = false, onFilesAdded }: UploaderProps) {
       <div className="mb-4">
         <h2 className="font-display text-lg text-[var(--text-primary)]">Add assets</h2>
         <p className="mt-1 text-sm text-[var(--text-muted)]">
-          PNG, JPG, JPEG, WEBP, MP3, OGG, WAV, FLAC.
+          Images, audio, models, and meshes: PNG, JPG, JPEG, WEBP, MP3, OGG, WAV, FLAC, FBX, GLTF, GLB, RBXM, RBXMX, MESH.
         </p>
       </div>
 
@@ -79,7 +79,7 @@ export function Uploader({ disabled = false, onFilesAdded }: UploaderProps) {
         ref={inputRef}
         type="file"
         multiple
-        accept=".png,.jpg,.jpeg,.webp,.mp3,.ogg,.wav,.flac,image/png,image/jpeg,image/webp,audio/mpeg,audio/ogg,audio/wav,audio/flac,audio/x-flac,audio/x-wav"
+        accept=".png,.jpg,.jpeg,.webp,.mp3,.ogg,.wav,.flac,.fbx,.gltf,.glb,.rbxm,.rbxmx,.mesh,image/png,image/jpeg,image/webp,audio/mpeg,audio/ogg,audio/wav,audio/flac,audio/x-flac,audio/x-wav,model/fbx,model/gltf+json,model/gltf-binary,model/x-rbxm,model/x-file-mesh-data,application/octet-stream"
         className="hidden"
         onChange={(event) => {
           processFiles(event.target.files);

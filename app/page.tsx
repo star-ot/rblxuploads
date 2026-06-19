@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppFooter } from "@/components/layout/AppFooter";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { AssetLibraryManager } from "@/components/AssetLibraryManager";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { Uploader } from "@/components/Uploader";
 import { UploadQueue } from "@/components/UploadQueue";
@@ -294,6 +295,7 @@ export default function Home() {
         </div>
 
         <ResultsTable items={items} />
+        <AssetLibraryManager items={items} config={config} />
       </main>
 
       <AppFooter />

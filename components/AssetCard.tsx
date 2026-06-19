@@ -35,6 +35,8 @@ export function AssetCard({
   const isLocked =
     item.status === "uploading" || item.status === "processing";
   const isImageAsset = item.assetType === "Image";
+  const isModelAsset = item.assetType === "Model";
+  const isMeshAsset = item.assetType === "Mesh";
 
   return (
     <article className="grid gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 sm:grid-cols-[56px_1fr_auto] sm:items-start">
@@ -44,6 +46,14 @@ export function AssetCard({
           alt={item.assetName}
           className="h-14 w-14 rounded-md border border-[var(--border)] object-cover"
         />
+      ) : isModelAsset ? (
+        <div className="flex h-14 w-14 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] text-xl text-[var(--text-muted)]">
+          ◻
+        </div>
+      ) : isMeshAsset ? (
+        <div className="flex h-14 w-14 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] text-xl text-[var(--text-muted)]">
+          △
+        </div>
       ) : (
         <div className="flex h-14 w-14 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] text-xl text-[var(--text-muted)]">
           ♪

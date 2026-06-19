@@ -2,6 +2,8 @@ import type { AssetType } from "@/lib/types";
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp"]);
 const AUDIO_EXTENSIONS = new Set(["mp3", "ogg", "wav", "flac"]);
+const MODEL_EXTENSIONS = new Set(["fbx", "gltf", "glb", "rbxm", "rbxmx"]);
+const MESH_EXTENSIONS = new Set(["mesh"]);
 
 const IMAGE_MIME_TYPES = new Set([
   "image/png",
@@ -19,6 +21,15 @@ const AUDIO_MIME_TYPES = new Set([
   "audio/x-wav",
 ]);
 
+const MODEL_MIME_TYPES = new Set([
+  "model/fbx",
+  "model/gltf+json",
+  "model/gltf-binary",
+  "model/x-rbxm",
+]);
+
+const MESH_MIME_TYPES = new Set(["model/x-file-mesh-data"]);
+
 export function getAssetType(file: File): AssetType | null {
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   const mime = file.type.toLowerCase();
@@ -31,6 +42,14 @@ export function getAssetType(file: File): AssetType | null {
     return "Audio";
   }
 
+  if (MODEL_EXTENSIONS.has(extension) || MODEL_MIME_TYPES.has(mime)) {
+    return "Model";
+  }
+
+  if (MESH_EXTENSIONS.has(extension) || MESH_MIME_TYPES.has(mime)) {
+    return "Mesh";
+  }
+
   return null;
 }
 
@@ -40,8 +59,13 @@ export function isSupportedAssetFile(file: File): boolean {
 
 export function getUnsupportedReason(file: File): string {
   if (!isSupportedAssetFile(file)) {
-    return "Unsupported file type. Use PNG, JPG, JPEG, WEBP, MP3, OGG, WAV, or FLAC.";
+    return "Unsupported file type. Use PNG, JPG, JPEG, WEBP, MP3, OGG, WAV, FLAC, FBX, GLTF, GLB, RBXM, RBXMX, or MESH.";
   }
 
   return "";
+}
+
+export function canUpdateModelPackage(file: File): boolean {
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return extension === "fbx";
 }

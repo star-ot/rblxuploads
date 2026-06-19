@@ -157,6 +157,14 @@ export function ResultsTable({ items }: ResultsTableProps) {
                         alt={item.assetName}
                         className="h-9 w-9 rounded border border-[var(--border)] object-cover"
                       />
+                    ) : item.assetType === "Model" ? (
+                      <div className="flex h-9 w-9 items-center justify-center rounded border border-[var(--border)] bg-[var(--surface)] text-sm text-[var(--text-muted)]">
+                        ◻
+                      </div>
+                    ) : item.assetType === "Mesh" ? (
+                      <div className="flex h-9 w-9 items-center justify-center rounded border border-[var(--border)] bg-[var(--surface)] text-sm text-[var(--text-muted)]">
+                        △
+                      </div>
                     ) : (
                       <div className="flex h-9 w-9 items-center justify-center rounded border border-[var(--border)] bg-[var(--surface)] text-sm text-[var(--text-muted)]">
                         ♪

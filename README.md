@@ -2,17 +2,20 @@
 
 **Made by [StarVSK](https://github.com/star-ot)**
 
-Local batch uploader for Roblox Open Cloud **Image** and **Audio** assets. Queue files, name them, upload with controlled concurrency, and copy the resulting `rbxassetid://` values.
+Local batch uploader for Roblox Open Cloud **Image**, **Audio**, **Model**, and **Mesh** assets. Queue files, name them, upload with controlled concurrency, and manage resulting `rbxassetid://` values in a local asset library.
 
 Runs entirely on your machine. The only outbound network traffic is to `apis.roblox.com` when you start a batch.
 
 ## Features
 
-- Drag-and-drop or file-picker batch uploads (PNG, JPG, JPEG, WEBP, MP3, OGG, WAV, FLAC)
+- Drag-and-drop or file-picker batch uploads (PNG, JPG, JPEG, WEBP, MP3, OGG, WAV, FLAC, FBX, GLTF, GLB, RBXM, RBXMX, MESH)
 - Automatic filename → Roblox display name formatting (editable per file)
 - Concurrency-limited queue with retries
 - Per-item status: Queued → Sending → Roblox → Done / Error
 - Copy individual IDs, copy all, or export CSV/JSON results
+- IndexedDB-backed local asset library with folders, tags, search/filter/sort, and bulk move/tag operations
+- Portable local library export/import (JSON/CSV) for sharing metadata with others
+- Model package update workflow (`PATCH /assets/v1/assets/{assetId}`) with FBX validation
 - Credentials stored in browser `localStorage` only
 
 ## Quick start
@@ -56,7 +59,8 @@ This app is designed for local, open-source use:
 3. Server polls `GET …/operations/{operationId}` until complete
 4. `assetId` returns to the browser; queue UI updates live
 
-Assets are created with `assetType: "Image"` or `assetType: "Audio"` based on file type.
+Assets are created with `assetType: "Image"`, `"Audio"`, `"Model"`, or `"Mesh"` based on file type.
+Model packages can be updated via a local UI workflow that proxies to `PATCH /assets/v1/assets/{assetId}`.
 
 ## Project structure
 
@@ -72,11 +76,13 @@ components/
   UploadQueue.tsx
   AssetCard.tsx
   ResultsTable.tsx
+  AssetLibraryManager.tsx   # IndexedDB-backed local library manager UI
 hooks/
   usePersistedConfig.ts     # localStorage sync
 lib/
   config/                   # constants + storage helpers
   roblox/client.ts          # Open Cloud create + poll (server-only)
+  local-assets-db.ts        # IndexedDB persistence helpers
   upload/                   # browser client + concurrency queue
   file-parser.ts
   name-formatter.ts

@@ -37,3 +37,41 @@ export async function uploadAsset({
 
   return payload;
 }
+
+interface UpdateModelPackageOptions {
+  file: File;
+  assetId: string;
+  displayName: string;
+  config: UploadConfig;
+}
+
+export async function updateModelPackage({
+  file,
+  assetId,
+  displayName,
+  config,
+}: UpdateModelPackageOptions): Promise<UploadApiResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("assetId", assetId.trim());
+  formData.append("displayName", displayName.trim());
+  formData.append("creatorId", config.creatorId.trim());
+  formData.append("creatorType", config.creatorType);
+  formData.append("apiKey", config.apiKey.trim());
+
+  const response = await fetch("/api/upload", {
+    method: "PATCH",
+    body: formData,
+  });
+
+  const payload = (await response.json()) as UploadApiResponse;
+
+  if (!response.ok || !payload.ok) {
+    return {
+      ok: false,
+      error: payload.error ?? "Model package update failed",
+    };
+  }
+
+  return payload;
+}

@@ -6,7 +6,7 @@ export type UploadStatus =
   | "failed";
 
 export type CreatorType = "user" | "group";
-export type AssetType = "Image" | "Audio";
+export type AssetType = "Image" | "Audio" | "Model" | "Mesh";
 
 /** User-editable settings persisted in browser localStorage only. */
 export interface UploadConfig {
@@ -42,4 +42,24 @@ export interface UploadApiResponse {
   assetId?: string;
   operationId?: string;
   error?: string;
+}
+
+export interface LocalAssetRecord {
+  id: string;
+  name: string;
+  type: AssetType;
+  assetId: string;
+  assetUri: string;
+  fileName: string;
+  folderPath: string;
+  tags: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface LocalAssetExportPayload {
+  schemaVersion: 1;
+  exportedAt: string;
+  folders: string[];
+  assets: LocalAssetRecord[];
 }

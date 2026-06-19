@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "RblxUploads — StarVSK",
   description:
-    "Local batch uploader for Roblox Open Cloud Image assets. Made by StarVSK.",
+    "Local batch uploader for Roblox Open Cloud Image and Audio assets. Made by StarVSK.",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },

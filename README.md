@@ -2,17 +2,17 @@
 
 **Made by [StarVSK](https://github.com/star-ot)**
 
-Local batch uploader for Roblox Open Cloud **Image** assets. Queue dozens of PNGs, name them, upload with controlled concurrency, and copy the resulting `rbxassetid://` values.
+Local batch uploader for Roblox Open Cloud **Image** and **Audio** assets. Queue files, name them, upload with controlled concurrency, and copy the resulting `rbxassetid://` values.
 
 Runs entirely on your machine. The only outbound network traffic is to `apis.roblox.com` when you start a batch.
 
 ## Features
 
-- Drag-and-drop or file-picker batch uploads (PNG, JPG, JPEG, WEBP)
+- Drag-and-drop or file-picker batch uploads (PNG, JPG, JPEG, WEBP, MP3, OGG, WAV, FLAC)
 - Automatic filename → Roblox display name formatting (editable per file)
 - Concurrency-limited queue with retries
 - Per-item status: Queued → Sending → Roblox → Done / Error
-- Copy individual IDs, copy all, or export JSON results
+- Copy individual IDs, copy all, or export CSV/JSON results
 - Credentials stored in browser `localStorage` only
 
 ## Quick start
@@ -22,7 +22,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), create an Open Cloud API key with the **asset** permission scope, paste it in **Credentials** along with your creator ID, add images, and hit **Start batch**.
+Open [http://localhost:3000](http://localhost:3000), create an Open Cloud API key with the **asset** permission scope, paste it in **Credentials** along with your creator ID, add supported assets, and hit **Start batch**.
 
 No `.env` file is required.
 
@@ -38,7 +38,7 @@ All settings live in the in-app **Credentials** panel and persist in `localStora
 | Parallel uploads | 1–10 concurrent requests |
 | Retry attempts | 0–5 retries per failed file |
 
-When creating your API key on the Creator Dashboard, enable the **asset** scope. This app uploads Image assets via the Open Cloud Assets API; keys without that permission will return authorization errors and uploads will fail.
+When creating your API key on the Creator Dashboard, enable the **asset** scope. This app uploads Image and Audio assets via the Open Cloud Assets API; keys without that permission will return authorization errors and uploads will fail.
 
 ## Security model
 
@@ -51,12 +51,12 @@ This app is designed for local, open-source use:
 
 ## Roblox API flow
 
-1. Browser sends image + metadata to `POST /api/upload` (local)
+1. Browser sends file + metadata to `POST /api/upload` (local)
 2. Server forwards multipart request to `POST https://apis.roblox.com/assets/v1/assets`
 3. Server polls `GET …/operations/{operationId}` until complete
 4. `assetId` returns to the browser; queue UI updates live
 
-Assets are created with `assetType: "Image"`.
+Assets are created with `assetType: "Image"` or `assetType: "Audio"` based on file type.
 
 ## Project structure
 

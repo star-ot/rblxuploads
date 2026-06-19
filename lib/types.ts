@@ -6,6 +6,7 @@ export type UploadStatus =
   | "failed";
 
 export type CreatorType = "user" | "group";
+export type AssetType = "Image" | "Audio";
 
 /** User-editable settings persisted in browser localStorage only. */
 export interface UploadConfig {
@@ -21,6 +22,7 @@ export interface UploadQueueItem {
   file: File;
   fileName: string;
   previewUrl: string;
+  assetType: AssetType;
   assetName: string;
   status: UploadStatus;
   progress: number;

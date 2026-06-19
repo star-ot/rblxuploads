@@ -83,7 +83,7 @@ export function UploadQueue({
 
       {items.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface-inset)] p-8 text-center text-sm text-[var(--text-muted)]">
-          Queue is empty — add images on the left.
+          Queue is empty — add assets on the left.
         </div>
       ) : (
         <div className="max-h-[34rem] space-y-2 overflow-y-auto pr-1">

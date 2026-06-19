@@ -1,6 +1,6 @@
-import { createRobloxImageAsset, RobloxUploadError } from "@/lib/roblox/client";
+import { createRobloxAsset, RobloxUploadError } from "@/lib/roblox/client";
 import { formatRobloxAssetName } from "@/lib/name-formatter";
-import { isSupportedImageFile } from "@/lib/file-parser";
+import { getAssetType } from "@/lib/file-parser";
 import type { CreatorType, UploadApiResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -26,16 +26,18 @@ export async function POST(request: Request): Promise<Response> {
 
     if (!(fileCandidate instanceof File)) {
       return json(
-        { ok: false, error: "No image file was provided." },
+        { ok: false, error: "No upload file was provided." },
         { status: 400 },
       );
     }
 
-    if (!isSupportedImageFile(fileCandidate)) {
+    const assetType = getAssetType(fileCandidate);
+    if (!assetType) {
       return json(
         {
           ok: false,
-          error: "Unsupported image type. Use PNG, JPG, JPEG, or WEBP.",
+          error:
+            "Unsupported file type. Use PNG, JPG, JPEG, WEBP, MP3, OGG, WAV, or FLAC.",
         },
         { status: 400 },
       );
@@ -69,10 +71,11 @@ export async function POST(request: Request): Promise<Response> {
       displayNameRaw || fileCandidate.name,
     );
 
-    const result = await createRobloxImageAsset({
+    const result = await createRobloxAsset({
       apiKey,
       creatorId,
       creatorType,
+      assetType,
       displayName,
       file: fileCandidate,
     });

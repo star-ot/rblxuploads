@@ -31,13 +31,45 @@ export function ResultsTable({ items }: ResultsTableProps) {
     }
 
     const text = completedWithIds
-      .map((item) => `${item.assetName}: rbxassetid://${item.assetId}`)
+      .map(
+        (item) => `[${item.assetType}] ${item.assetName}: rbxassetid://${item.assetId}`,
+      )
       .join("\n");
     await navigator.clipboard.writeText(text);
   }
 
+  function exportCsv() {
+    if (!finished.length) {
+      return;
+    }
+
+    const escape = (value: string) => `"${value.replaceAll('"', '""')}"`;
+    const rows = [
+      ["type", "name", "fileName", "status", "assetId", "assetUri", "error"],
+      ...finished.map((item) => [
+        item.assetType,
+        item.assetName,
+        item.fileName,
+        item.status,
+        item.assetId ?? "",
+        item.assetId ? `rbxassetid://${item.assetId}` : "",
+        item.error ?? "",
+      ]),
+    ];
+
+    const csv = rows.map((row) => row.map(escape).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `rblxuploads-${Date.now()}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   function exportJson() {
     const payload = finished.map((item) => ({
+      type: item.assetType,
       name: item.assetName,
       fileName: item.fileName,
       status: item.status,
@@ -78,6 +110,14 @@ export function ResultsTable({ items }: ResultsTableProps) {
           </button>
           <button
             type="button"
+            onClick={exportCsv}
+            disabled={!finished.length}
+            className="btn-secondary"
+          >
+            Export CSV
+          </button>
+          <button
+            type="button"
             onClick={exportJson}
             disabled={!finished.length}
             className="btn-secondary"
@@ -97,6 +137,7 @@ export function ResultsTable({ items }: ResultsTableProps) {
             <thead>
               <tr className="border-b border-[var(--border-subtle)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
                 <th className="px-3 py-2 font-medium">Thumb</th>
+                <th className="px-3 py-2 font-medium">Type</th>
                 <th className="px-3 py-2 font-medium">Name</th>
                 <th className="px-3 py-2 font-medium">ID</th>
                 <th className="px-3 py-2 font-medium">State</th>
@@ -110,12 +151,19 @@ export function ResultsTable({ items }: ResultsTableProps) {
                   className="border-b border-[var(--border-subtle)] text-[var(--text-secondary)] last:border-0"
                 >
                   <td className="px-3 py-2.5">
-                    <img
-                      src={item.previewUrl}
-                      alt={item.assetName}
-                      className="h-9 w-9 rounded border border-[var(--border)] object-cover"
-                    />
+                    {item.assetType === "Image" ? (
+                      <img
+                        src={item.previewUrl}
+                        alt={item.assetName}
+                        className="h-9 w-9 rounded border border-[var(--border)] object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-9 w-9 items-center justify-center rounded border border-[var(--border)] bg-[var(--surface)] text-sm text-[var(--text-muted)]">
+                        ♪
+                      </div>
+                    )}
                   </td>
+                  <td className="px-3 py-2.5">{item.assetType}</td>
                   <td className="px-3 py-2.5 text-[var(--text-primary)]">{item.assetName}</td>
                   <td className="px-3 py-2.5 font-mono text-xs">
                     {item.assetId ? `rbxassetid://${item.assetId}` : "—"}

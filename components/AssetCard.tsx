@@ -34,20 +34,28 @@ export function AssetCard({
 }: AssetCardProps) {
   const isLocked =
     item.status === "uploading" || item.status === "processing";
+  const isImageAsset = item.assetType === "Image";
 
   return (
     <article className="grid gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 sm:grid-cols-[56px_1fr_auto] sm:items-start">
-      <img
-        src={item.previewUrl}
-        alt={item.assetName}
-        className="h-14 w-14 rounded-md border border-[var(--border)] object-cover"
-      />
+      {isImageAsset ? (
+        <img
+          src={item.previewUrl}
+          alt={item.assetName}
+          className="h-14 w-14 rounded-md border border-[var(--border)] object-cover"
+        />
+      ) : (
+        <div className="flex h-14 w-14 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] text-xl text-[var(--text-muted)]">
+          ♪
+        </div>
+      )}
 
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className={`status-chip ${STATUS_CLASS[item.status]}`}>
             {STATUS_LABELS[item.status]}
           </span>
+          <span className="status-chip status-waiting">{item.assetType}</span>
           <span className="truncate font-mono text-[11px] text-[var(--text-muted)]">
             {item.fileName}
           </span>

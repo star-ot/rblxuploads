@@ -22,9 +22,9 @@ export function Uploader({ disabled = false, onFilesAdded }: UploaderProps) {
   return (
     <section className="panel h-full">
       <div className="mb-4">
-        <h2 className="font-display text-lg text-[var(--text-primary)]">Add images</h2>
+        <h2 className="font-display text-lg text-[var(--text-primary)]">Add assets</h2>
         <p className="mt-1 text-sm text-[var(--text-muted)]">
-          PNG, JPG, JPEG, WEBP — drop a whole folder if you like.
+          PNG, JPG, JPEG, WEBP, MP3, OGG, WAV, FLAC.
         </p>
       </div>
 
@@ -79,7 +79,7 @@ export function Uploader({ disabled = false, onFilesAdded }: UploaderProps) {
         ref={inputRef}
         type="file"
         multiple
-        accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+        accept=".png,.jpg,.jpeg,.webp,.mp3,.ogg,.wav,.flac,image/png,image/jpeg,image/webp,audio/mpeg,audio/ogg,audio/wav,audio/flac,audio/x-flac,audio/x-wav"
         className="hidden"
         onChange={(event) => {
           processFiles(event.target.files);

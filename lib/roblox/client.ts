@@ -16,6 +16,7 @@ export interface RobloxUploadInput {
   apiKey: string;
   creatorId: string;
   creatorType: "user" | "group";
+  assetType: "Image" | "Audio";
   displayName: string;
   file: File;
 }
@@ -46,7 +47,7 @@ export class RobloxUploadError extends Error {
   }
 }
 
-export async function createRobloxImageAsset(
+export async function createRobloxAsset(
   input: RobloxUploadInput,
 ): Promise<RobloxUploadResult> {
   const formData = new FormData();
@@ -54,7 +55,7 @@ export async function createRobloxImageAsset(
   formData.append(
     "request",
     JSON.stringify({
-      assetType: "Image",
+      assetType: input.assetType,
       displayName: input.displayName,
       description: `Uploaded via StarVSK RblxUploads: ${input.displayName}`,
       creationContext: {

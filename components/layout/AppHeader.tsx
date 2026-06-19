@@ -26,10 +26,10 @@ export function AppHeader({ statusMessage }: AppHeaderProps) {
           </h1>
 
           <p className="max-w-xl text-sm leading-relaxed text-[var(--text-secondary)]">
-            Queue dozens of images, name them for Roblox, and push them as{" "}
-            <span className="text-[var(--text-primary)]">Image</span> assets through
-            Open Cloud. Everything runs on your machine — uploads are the only outbound
-            calls.
+            Queue files, name them for Roblox, and push them as{" "}
+            <span className="text-[var(--text-primary)]">Image or Audio</span> assets
+            through Open Cloud. Everything runs on your machine — uploads are the only
+            outbound calls.
           </p>
         </div>
 

@@ -8,11 +8,15 @@ import { Uploader } from "@/components/Uploader";
 import { UploadQueue } from "@/components/UploadQueue";
 import { ResultsTable } from "@/components/ResultsTable";
 import { usePersistedConfig } from "@/hooks/usePersistedConfig";
-import { getUnsupportedReason, isSupportedImageFile } from "@/lib/file-parser";
+import {
+  getAssetType,
+  getUnsupportedReason,
+  isSupportedAssetFile,
+} from "@/lib/file-parser";
 import { formatRobloxAssetName } from "@/lib/name-formatter";
 import { runQueue } from "@/lib/upload/queue";
 import type { UploadQueueItem } from "@/lib/types";
-import { uploadImageAsset } from "@/lib/upload/client";
+import { uploadAsset } from "@/lib/upload/client";
 
 export default function Home() {
   const [config, setConfig] = usePersistedConfig();
@@ -85,14 +89,16 @@ export default function Home() {
 
   function addFiles(files: File[]) {
     const created = files.map((file) => {
-      const fileIsSupported = isSupportedImageFile(file);
+      const fileIsSupported = isSupportedAssetFile(file);
       const unsupportedReason = getUnsupportedReason(file);
+      const assetType = getAssetType(file) ?? "Image";
 
       return {
         id: crypto.randomUUID(),
         file,
         fileName: file.name,
         previewUrl: URL.createObjectURL(file),
+        assetType,
         assetName: formatRobloxAssetName(file.name),
         status: fileIsSupported ? "waiting" : "failed",
         progress: fileIsSupported ? 0 : 100,
@@ -134,7 +140,7 @@ export default function Home() {
   function retryFailed() {
     setItems((current) =>
       current.map((item) => {
-        if (item.status !== "failed" || !isSupportedImageFile(item.file)) {
+        if (item.status !== "failed" || !isSupportedAssetFile(item.file)) {
           return item;
         }
 
@@ -197,7 +203,7 @@ export default function Home() {
             }));
 
             try {
-              const result = await uploadImageAsset({ item: snapshot, config });
+              const result = await uploadAsset({ item: snapshot, config });
               if (!result.ok || !result.assetId) {
                 throw new Error(result.error ?? "Upload failed");
               }

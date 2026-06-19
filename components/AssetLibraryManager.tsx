@@ -196,8 +196,11 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
       return;
     }
 
-    const parent = parentOverride ? normalizeFolderPath(parentOverride) : newFolderParent;
-    const normalized = normalizeFolderPath(`${parent}/${newFolderName}`);
+    const hasOverride = parentOverride !== undefined;
+    const parent = hasOverride ? parentOverride : newFolderParent;
+    const normalized = normalizeFolderPath(
+      parent.trim() ? `${parent}/${newFolderName}` : newFolderName,
+    );
     await upsertLocalFolder(normalized);
     setNewFolderName("");
     setSelectedFolder(normalized);
@@ -652,7 +655,7 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
             <button
               type="button"
               className="btn-secondary"
-              onClick={() => createFolder(ROOT_FOLDER)}
+              onClick={() => createFolder("")}
             >
               + Root
             </button>

@@ -173,10 +173,12 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
 
   const folderTree = useMemo(() => buildFolderTree(folderPaths), [folderPaths]);
 
-  const directFolderAssetCounts = useMemo(() => {
+  const nestedFolderAssetCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const asset of assets) {
-      counts.set(asset.folderPath, (counts.get(asset.folderPath) ?? 0) + 1);
+      for (const ancestor of getFolderAncestors(asset.folderPath)) {
+        counts.set(ancestor, (counts.get(ancestor) ?? 0) + 1);
+      }
     }
     return counts;
   }, [assets]);
@@ -791,7 +793,7 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
                 depth={0}
                 selectedFolder={folderFilter}
                 expandedPaths={expandedFolderPaths}
-                directAssetCounts={directFolderAssetCounts}
+                nestedAssetCounts={nestedFolderAssetCounts}
                 onSelect={selectFolder}
                 onToggleExpand={toggleFolderExpansion}
               />
@@ -926,7 +928,7 @@ interface FolderTreeItemProps {
   depth: number;
   selectedFolder: string;
   expandedPaths: Set<string>;
-  directAssetCounts: Map<string, number>;
+  nestedAssetCounts: Map<string, number>;
   onSelect: (folderPath: string) => void;
   onToggleExpand: (folderPath: string) => void;
 }
@@ -936,7 +938,7 @@ function FolderTreeItem({
   depth,
   selectedFolder,
   expandedPaths,
-  directAssetCounts,
+  nestedAssetCounts,
   onSelect,
   onToggleExpand,
 }: FolderTreeItemProps) {
@@ -974,7 +976,7 @@ function FolderTreeItem({
         >
           <span className="truncate">{node.name}</span>
           <span className="ml-2 font-mono text-xs text-[var(--text-muted)]">
-            {directAssetCounts.get(node.path) ?? 0}
+            {nestedAssetCounts.get(node.path) ?? 0}
           </span>
         </button>
       </div>
@@ -987,7 +989,7 @@ function FolderTreeItem({
               depth={depth + 1}
               selectedFolder={selectedFolder}
               expandedPaths={expandedPaths}
-              directAssetCounts={directAssetCounts}
+              nestedAssetCounts={nestedAssetCounts}
               onSelect={onSelect}
               onToggleExpand={onToggleExpand}
             />

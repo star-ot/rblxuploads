@@ -128,11 +128,11 @@ export function ResultsTable({ items }: ResultsTableProps) {
       </div>
 
       {finished.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface-inset)] p-8 text-center text-sm text-[var(--text-muted)]">
+        <div className="flex min-h-[18rem] items-center justify-center rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface-inset)] p-8 text-center text-sm text-[var(--text-muted)]">
           Finished uploads land here with copyable asset IDs.
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="max-h-[24rem] overflow-auto rounded-lg border border-[var(--border-subtle)]">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--border-subtle)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">

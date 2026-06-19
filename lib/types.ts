@@ -50,6 +50,7 @@ export interface LocalAssetRecord {
   type: AssetType;
   assetId: string;
   assetUri: string;
+  thumbnailDataUrl?: string;
   fileName: string;
   folderPath: string;
   tags: string[];

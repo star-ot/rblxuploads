@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -78,12 +79,17 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
     void (async () => {
       for (const item of newlyCompleted) {
         persistedUploadIds.current.add(item.id);
+        const thumbnailDataUrl =
+          item.assetType === "Image"
+            ? await createImageThumbnailDataUrl(item.file)
+            : undefined;
         await upsertLocalAsset({
           id: crypto.randomUUID(),
           name: item.assetName,
           type: item.assetType,
           assetId: item.assetId ?? "",
           assetUri: `rbxassetid://${item.assetId}`,
+          thumbnailDataUrl,
           fileName: item.fileName,
           folderPath: ROOT_FOLDER,
           tags: [],
@@ -382,6 +388,8 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
           type: normalizeImportedType(asset.type),
           assetId: asset.assetId,
           assetUri: asset.assetUri || `rbxassetid://${asset.assetId}`,
+          thumbnailDataUrl:
+            typeof asset.thumbnailDataUrl === "string" ? asset.thumbnailDataUrl : undefined,
           folderPath: normalizeFolderPath(asset.folderPath || ROOT_FOLDER),
           tags: asset.tags ?? [],
           fileName: asset.fileName ?? `${asset.name}.asset`,
@@ -651,6 +659,7 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
                     }}
                   />
                 </th>
+                <th className="px-3 py-2 font-medium">Thumb</th>
                 <th className="px-3 py-2 font-medium">Name</th>
                 <th className="px-3 py-2 font-medium">Type</th>
                 <th className="px-3 py-2 font-medium">rbxassetid</th>
@@ -678,6 +687,19 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
                         setSelectedAssetIds(next);
                       }}
                     />
+                  </td>
+                  <td className="px-3 py-2">
+                    {asset.thumbnailDataUrl ? (
+                      <img
+                        src={asset.thumbnailDataUrl}
+                        alt={asset.name}
+                        className="h-8 w-8 rounded border border-[var(--border)] object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-8 w-8 items-center justify-center rounded border border-[var(--border)] bg-[var(--surface)] text-[10px] text-[var(--text-muted)]">
+                        {getAssetTypeGlyph(asset.type)}
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-[var(--text-primary)]">{asset.name}</td>
                   <td className="px-3 py-2">{asset.type}</td>
@@ -958,4 +980,68 @@ function splitCsvLine(line: string): string[] {
   result.push(current);
 
   return result;
+}
+
+function getAssetTypeGlyph(type: AssetType): string {
+  switch (type) {
+    case "Audio":
+      return "A";
+    case "Model":
+      return "M";
+    case "Mesh":
+      return "X";
+    case "Image":
+    default:
+      return "I";
+  }
+}
+
+async function createImageThumbnailDataUrl(file: File): Promise<string | undefined> {
+  if (!file.type.startsWith("image/")) {
+    return undefined;
+  }
+
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    const image = await loadImage(dataUrl);
+    const longestSide = Math.max(image.naturalWidth, image.naturalHeight);
+    if (!Number.isFinite(longestSide) || longestSide <= 0) {
+      return undefined;
+    }
+
+    const maxDimension = 160;
+    const scale = Math.min(1, maxDimension / longestSide);
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return undefined;
+    }
+
+    context.drawImage(image, 0, 0, width, height);
+    return canvas.toDataURL("image/webp", 0.82);
+  } catch {
+    return undefined;
+  }
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error("Failed reading file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Failed loading image."));
+    image.src = src;
+  });
 }

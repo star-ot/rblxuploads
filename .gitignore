@@ -36,6 +36,12 @@ yarn-error.log*
 .env.*.local
 !.env.example
 
+# CLI local config with secrets
+studio-vault.json
+
+# audit logs
+audit-logs/
+
 # vercel
 .vercel
 

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ToastProvider } from "@/components/ui/Toast";
 import { WorkspacePageJsonLd } from "@/components/seo/JsonLd";
 import { openGraphImages, twitterImages } from "@/lib/seo/open-graph";
 import { absoluteUrl, siteConfig } from "@/lib/seo/site";
@@ -41,9 +42,9 @@ export default function WorkspaceLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <>
+    <ToastProvider>
       <WorkspacePageJsonLd />
       {children}
-    </>
+    </ToastProvider>
   );
 }

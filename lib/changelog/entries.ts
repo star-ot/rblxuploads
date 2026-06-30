@@ -10,6 +10,67 @@ import type { ChangelogRelease } from "./types";
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: "0.4.0",
+    date: "2026-06-30",
+    title: "Teams, pipeline & studio ops",
+    summary:
+      "Self-hosting for studios, asset versioning with previews, upload policy validation, observability, webhooks, and CI gates — plus the /teams page and Git library sync.",
+    changes: [
+      {
+        type: "added",
+        text: "/teams page for studios — security architecture diagram, deployment options, comparison table, and security reviewer FAQ.",
+      },
+      {
+        type: "added",
+        text: "Asset version pipeline — replace library entries with new rbxassetids, archive prior IDs with optimized previews, compact v3 export, and a responsive version dropdown in the library.",
+      },
+      {
+        type: "added",
+        text: "Upload policy settings and studio-vault validate for CI — naming patterns, image dimensions, duplicate queue warnings.",
+      },
+      {
+        type: "added",
+        text: "Observability: GET /api/metrics (Prometheus + JSON), upload counters on /api/health, and a live metrics panel in Settings.",
+      },
+      {
+        type: "added",
+        text: "Webhook notifications on batch complete (Slack/Discord-compatible) via Settings and POST /api/notify.",
+      },
+      {
+        type: "added",
+        text: "GitHub Actions workflow (studio-vault-upload.yml) with fixture validation and optional Open Cloud upload.",
+      },
+      {
+        type: "added",
+        text: "docs/SECURITY.md, DEPLOYMENT.md, TEAM-WORKFLOWS.md, AUDIT-LOGGING.md, and CI.md.",
+      },
+      {
+        type: "added",
+        text: "Dockerfile, docker-compose.yml, GET /api/instance, security headers middleware, and expanded .env.example.",
+      },
+      {
+        type: "added",
+        text: "Optional structured audit logging (RBLXUPLOADS_AUDIT_LOG) — never logs API keys or file bytes.",
+      },
+      {
+        type: "added",
+        text: "studio-vault CLI — headless upload, patch, library export, and validate commands.",
+      },
+      {
+        type: "added",
+        text: "Library sync from repo with conflict resolution, .studio-vault/library.manifest.json schema, and profile metadata export/import.",
+      },
+      {
+        type: "added",
+        text: "Workspace onboarding checklist, toast notifications, keyboard shortcuts modal, and Instance info panel in Settings.",
+      },
+      {
+        type: "improved",
+        text: "Roblox API errors translated to actionable fixes; library loading skeletons and richer empty states.",
+      },
+    ],
+  },
+  {
     version: "0.3.0",
     date: "2026-06-30",
     title: "Studio Vault launch",

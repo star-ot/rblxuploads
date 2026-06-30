@@ -16,29 +16,62 @@ const workspaceClassNames: NonNullable<GooeyInputProps["classNames"]> = {
 type LibraryGooeySearchProps = Omit<GooeyInputProps, "classNames" | "placeholder"> & {
   classNames?: GooeyInputProps["classNames"];
   placeholder?: string;
+  /** Reserve grid space while the gooey control expands in-place. Defaults to true. */
+  stableLayout?: boolean;
+  /** Shorter control for single-row filter bars. */
+  compact?: boolean;
 };
 
 export function LibraryGooeySearch({
   classNames,
   placeholder = "Search name, ID, folder, tags…",
-  collapsedWidth = 220,
-  expandedWidth = 360,
+  collapsedWidth,
+  expandedWidth,
   expandedOffset = 50,
   gooeyBlur = 4,
+  stableLayout = true,
+  compact = false,
   ...props
 }: LibraryGooeySearchProps) {
+  const resolvedCollapsedWidth = collapsedWidth ?? (compact ? 160 : 220);
+  const resolvedExpandedWidth = expandedWidth ?? (compact ? 280 : 360);
+
   return (
-    <GooeyInput
-      placeholder={placeholder}
-      collapsedWidth={collapsedWidth}
-      expandedWidth={expandedWidth}
-      expandedOffset={expandedOffset}
-      gooeyBlur={gooeyBlur}
-      classNames={{
-        ...workspaceClassNames,
-        ...classNames,
-      }}
-      {...props}
-    />
+    <div
+      className={
+        stableLayout
+          ? compact
+            ? "library-search-slot library-search-slot-compact"
+            : "library-search-slot"
+          : undefined
+      }
+    >
+      <GooeyInput
+        placeholder={placeholder}
+        collapsedWidth={resolvedCollapsedWidth}
+        expandedWidth={resolvedExpandedWidth}
+        expandedOffset={stableLayout ? 0 : expandedOffset}
+        gooeyBlur={gooeyBlur}
+        containLayout={stableLayout}
+        classNames={{
+          ...workspaceClassNames,
+          ...(stableLayout
+            ? {
+                root: "w-full justify-start",
+                filterWrap: compact ? "h-8 w-full" : "w-full",
+                buttonRow: "w-full",
+                trigger: compact
+                  ? `${workspaceClassNames.trigger ?? ""} h-8 min-h-8 w-full px-2.5 text-xs`
+                  : `${workspaceClassNames.trigger ?? ""} w-full`,
+                input: compact
+                  ? "text-xs text-[var(--text-primary)] placeholder:text-[var(--text-faint)]"
+                  : workspaceClassNames.input,
+              }
+            : {}),
+          ...classNames,
+        }}
+        {...props}
+      />
+    </div>
   );
 }

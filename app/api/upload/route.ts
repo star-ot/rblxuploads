@@ -1,14 +1,34 @@
+import { randomUUID } from "node:crypto";
 import {
   createRobloxAsset,
   RobloxUploadError,
   updateRobloxModelPackage,
 } from "@/lib/roblox/client";
+import { translateUploadError } from "@/lib/roblox/error-messages";
 import { formatRobloxAssetName } from "@/lib/name-formatter";
 import { canUpdateModelPackage, getAssetType } from "@/lib/file-parser";
+import { resolveUploadActor } from "@/lib/server/actor";
+import {
+  sanitizeAuditError,
+  writeAuditLog,
+  type AuditEventType,
+} from "@/lib/server/audit-log";
+import {
+  applyCorsHeaders,
+  corsPreflightResponse,
+  rejectDisallowedOrigin,
+} from "@/lib/server/cors";
+import {
+  isRateLimitError,
+  recordUploadFailure,
+  recordUploadRetry,
+  recordUploadSuccess,
+} from "@/lib/server/metrics";
 import type { CreatorType, UploadApiResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
 const DEBUG_UPLOAD_LOGS =
   process.env.NODE_ENV !== "production" || process.env.RBLXUPLOADS_DEBUG === "1";
 
@@ -20,97 +40,164 @@ const DEBUG_UPLOAD_LOGS =
  * - No .env fallback, no server-side credential storage, no logging of secrets.
  * - Roblox Open Cloud is the sole external network call from this app.
  */
+export async function OPTIONS(request: Request): Promise<Response> {
+  const preflight = corsPreflightResponse(request);
+  return preflight ?? new Response(null, { status: 204 });
+}
+
 export async function POST(request: Request): Promise<Response> {
-  return handleCreateRequest(request);
+  return handleUpload(request, "asset.create", handleCreateRequest);
 }
 
 export async function PATCH(request: Request): Promise<Response> {
+  return handleUpload(request, "asset.patch", handlePatchRequest);
+}
+
+type UploadHandler = (
+  request: Request,
+  context: UploadContext,
+) => Promise<Response>;
+
+interface UploadContext {
+  requestId: string;
+  actor?: string;
+  startedAt: number;
+  attempt: number;
+}
+
+async function handleUpload(
+  request: Request,
+  event: AuditEventType,
+  handler: UploadHandler,
+): Promise<Response> {
+  const corsReject = rejectDisallowedOrigin(request);
+  if (corsReject) {
+    return applyCorsHeaders(request, corsReject);
+  }
+
+  const context: UploadContext = {
+    requestId: randomUUID(),
+    actor: resolveUploadActor(request),
+    startedAt: Date.now(),
+    attempt: parseUploadAttempt(request),
+  };
+
+  if (context.attempt > 1) {
+    recordUploadRetry();
+  }
+
+  const response = await handler(request, context);
+  return applyCorsHeaders(request, response);
+}
+
+async function handlePatchRequest(
+  request: Request,
+  context: UploadContext,
+): Promise<Response> {
+  let creatorId = "";
+  let creatorType: CreatorType = "user";
+  let displayName = "";
+  let fileName = "";
+  const assetType = "Model";
+
   try {
     const formData = await request.formData();
 
     const fileCandidate = formData.get("file");
-    const creatorId = `${formData.get("creatorId") ?? ""}`.trim();
-    const creatorType = `${formData.get("creatorType") ?? "user"}` as CreatorType;
+    creatorId = `${formData.get("creatorId") ?? ""}`.trim();
+    creatorType = `${formData.get("creatorType") ?? "user"}` as CreatorType;
     const apiKey = `${formData.get("apiKey") ?? ""}`.trim();
     const assetId = `${formData.get("assetId") ?? ""}`.trim();
     const displayNameRaw = `${formData.get("displayName") ?? ""}`.trim();
 
     if (!(fileCandidate instanceof File)) {
-      logUploadDebug("PATCH", "Validation failed", {
-        reason: "No file provided",
+      return await finishFailure({
+        event: "asset.patch",
+        context,
+        creatorId,
+        creatorType,
+        displayName: displayNameRaw,
+        fileName: "",
+        assetType,
+        status: 400,
+        error: "No model file was provided for update.",
       });
-      return json(
-        { ok: false, error: "No model file was provided for update." },
-        { status: 400 },
-      );
     }
 
+    fileName = fileCandidate.name;
+
     if (!canUpdateModelPackage(fileCandidate)) {
-      logUploadDebug("PATCH", "Validation failed", {
-        reason: "Model update with unsupported extension",
-        fileName: fileCandidate.name,
-        fileType: fileCandidate.type,
-        fileSize: fileCandidate.size,
+      return await finishFailure({
+        event: "asset.patch",
+        context,
+        creatorId,
+        creatorType,
+        displayName: displayNameRaw || fileName,
+        fileName,
+        assetType,
+        status: 400,
+        error:
+          "Model package updates currently support FBX files only in Roblox Open Cloud.",
       });
-      return json(
-        {
-          ok: false,
-          error:
-            "Model package updates currently support FBX files only in Roblox Open Cloud.",
-        },
-        { status: 400 },
-      );
     }
 
     if (!creatorId || !/^\d+$/.test(creatorId)) {
-      logUploadDebug("PATCH", "Validation failed", {
-        reason: "Invalid creatorId",
+      return await finishFailure({
+        event: "asset.patch",
+        context,
         creatorId,
+        creatorType,
+        displayName: displayNameRaw || fileName,
+        fileName,
+        assetType,
+        status: 400,
+        error: "Creator ID must be a numeric Roblox ID.",
       });
-      return json(
-        { ok: false, error: "Creator ID must be a numeric Roblox ID." },
-        { status: 400 },
-      );
     }
 
     if (creatorType !== "user" && creatorType !== "group") {
-      logUploadDebug("PATCH", "Validation failed", {
-        reason: "Invalid creatorType",
+      return await finishFailure({
+        event: "asset.patch",
+        context,
+        creatorId,
         creatorType,
+        displayName: displayNameRaw || fileName,
+        fileName,
+        assetType,
+        status: 400,
+        error: "Creator type must be either user or group.",
       });
-      return json(
-        { ok: false, error: "Creator type must be either user or group." },
-        { status: 400 },
-      );
     }
 
     if (!assetId || !/^\d+$/.test(assetId)) {
-      logUploadDebug("PATCH", "Validation failed", {
-        reason: "Invalid target assetId",
-        assetId,
+      return await finishFailure({
+        event: "asset.patch",
+        context,
+        creatorId,
+        creatorType,
+        displayName: displayNameRaw || fileName,
+        fileName,
+        assetType,
+        status: 400,
+        error: "Target model asset ID must be numeric.",
       });
-      return json(
-        { ok: false, error: "Target model asset ID must be numeric." },
-        { status: 400 },
-      );
     }
 
     if (!apiKey) {
-      logUploadDebug("PATCH", "Validation failed", {
-        reason: "Missing apiKey",
+      return await finishFailure({
+        event: "asset.patch",
+        context,
+        creatorId,
+        creatorType,
+        displayName: displayNameRaw || fileName,
+        fileName,
+        assetType,
+        status: 400,
+        error: "Missing API key. Enter your Roblox Open Cloud key in Settings.",
       });
-      return json(
-        {
-          ok: false,
-          error: "Missing API key. Enter your Roblox Open Cloud key in Settings.",
-        },
-        { status: 400 },
-      );
     }
 
-    const displayName = formatRobloxAssetName(
-      displayNameRaw || fileCandidate.name,
-    );
+    displayName = formatRobloxAssetName(displayNameRaw || fileCandidate.name);
 
     const result = await updateRobloxModelPackage({
       apiKey,
@@ -121,186 +208,324 @@ export async function PATCH(request: Request): Promise<Response> {
       file: fileCandidate,
     });
 
-    const response: UploadApiResponse = {
-      ok: true,
+    await writeAuditLog({
+      ts: new Date().toISOString(),
+      event: "asset.patch",
+      actor: context.actor,
+      creatorId,
+      creatorType,
       assetId: result.assetId,
-      operationId: result.operationId,
-    };
+      displayName,
+      fileName,
+      assetType,
+      status: "success",
+      durationMs: Date.now() - context.startedAt,
+      requestId: context.requestId,
+    });
+
+    recordUploadSuccess(Date.now() - context.startedAt);
 
     logUploadDebug("PATCH", "Model update success", {
-      fileName: fileCandidate.name,
-      fileType: fileCandidate.type,
-      fileSize: fileCandidate.size,
+      fileName,
       creatorType,
       creatorId,
       targetAssetId: assetId,
       resultingAssetId: result.assetId,
       operationId: result.operationId,
+      requestId: context.requestId,
     });
 
-    return json(response, { status: 200 });
-  } catch (error) {
-    if (error instanceof RobloxUploadError) {
-      logUploadDebug("PATCH", "Roblox upload error", {
-        errorMessage: error.message,
-        statusCode: error.statusCode,
-      });
-      return json(
-        {
-          ok: false,
-          error: error.message,
-        },
-        { status: error.statusCode },
-      );
-    }
-
-    if (error instanceof Error) {
-      logUploadDebug("PATCH", "Unexpected server error", {
-        errorMessage: error.message,
-      });
-      return json({ ok: false, error: error.message }, { status: 500 });
-    }
-
-    logUploadDebug("PATCH", "Unknown non-error throw", {});
     return json(
-      { ok: false, error: "Unexpected model update error occurred." },
-      { status: 500 },
+      {
+        ok: true,
+        assetId: result.assetId,
+        operationId: result.operationId,
+      },
+      { status: 200 },
     );
+  } catch (error) {
+    return await handleUploadError(error, {
+      event: "asset.patch",
+      context,
+      creatorId,
+      creatorType,
+      displayName,
+      fileName,
+      assetType,
+      method: "PATCH",
+    });
   }
 }
 
-async function handleCreateRequest(request: Request): Promise<Response> {
+async function handleCreateRequest(
+  request: Request,
+  context: UploadContext,
+): Promise<Response> {
+  let creatorId = "";
+  let creatorType: CreatorType = "user";
+  let displayName = "";
+  let fileName = "";
+  let assetType = "Image";
+
   try {
     const formData = await request.formData();
 
     const fileCandidate = formData.get("file");
-    const creatorId = `${formData.get("creatorId") ?? ""}`.trim();
-    const creatorType = `${formData.get("creatorType") ?? "user"}` as CreatorType;
+    creatorId = `${formData.get("creatorId") ?? ""}`.trim();
+    creatorType = `${formData.get("creatorType") ?? "user"}` as CreatorType;
     const apiKey = `${formData.get("apiKey") ?? ""}`.trim();
     const displayNameRaw = `${formData.get("displayName") ?? ""}`.trim();
 
     if (!(fileCandidate instanceof File)) {
-      logUploadDebug("POST", "Validation failed", {
-        reason: "No file provided",
+      return await finishFailure({
+        event: "asset.create",
+        context,
+        creatorId,
+        creatorType,
+        displayName: displayNameRaw,
+        fileName: "",
+        assetType,
+        status: 400,
+        error: "No upload file was provided.",
       });
-      return json(
-        { ok: false, error: "No upload file was provided." },
-        { status: 400 },
-      );
     }
 
-    const assetType = getAssetType(fileCandidate);
-    if (!assetType) {
-      logUploadDebug("POST", "Validation failed", {
-        reason: "Unsupported file type",
-        fileName: fileCandidate.name,
-        fileType: fileCandidate.type,
-        fileSize: fileCandidate.size,
+    fileName = fileCandidate.name;
+    const resolvedType = getAssetType(fileCandidate);
+    if (!resolvedType) {
+      return await finishFailure({
+        event: "asset.create",
+        context,
+        creatorId,
+        creatorType,
+        displayName: displayNameRaw || fileName,
+        fileName,
+        assetType: "Unknown",
+        status: 400,
+        error:
+          "Unsupported file type. Use PNG, JPG, JPEG, WEBP, MP3, OGG, WAV, FLAC, FBX, GLTF, GLB, RBXM, RBXMX, or MESH.",
       });
-      return json(
-        {
-          ok: false,
-          error:
-            "Unsupported file type. Use PNG, JPG, JPEG, WEBP, MP3, OGG, WAV, FLAC, FBX, GLTF, GLB, RBXM, RBXMX, or MESH.",
-        },
-        { status: 400 },
-      );
     }
+
+    assetType = resolvedType;
 
     if (!creatorId || !/^\d+$/.test(creatorId)) {
-      logUploadDebug("POST", "Validation failed", {
-        reason: "Invalid creatorId",
+      return await finishFailure({
+        event: "asset.create",
+        context,
         creatorId,
+        creatorType,
+        displayName: displayNameRaw || fileName,
+        fileName,
+        assetType,
+        status: 400,
+        error: "Creator ID must be a numeric Roblox ID.",
       });
-      return json(
-        { ok: false, error: "Creator ID must be a numeric Roblox ID." },
-        { status: 400 },
-      );
     }
 
     if (creatorType !== "user" && creatorType !== "group") {
-      logUploadDebug("POST", "Validation failed", {
-        reason: "Invalid creatorType",
+      return await finishFailure({
+        event: "asset.create",
+        context,
+        creatorId,
         creatorType,
+        displayName: displayNameRaw || fileName,
+        fileName,
+        assetType,
+        status: 400,
+        error: "Creator type must be either user or group.",
       });
-      return json(
-        { ok: false, error: "Creator type must be either user or group." },
-        { status: 400 },
-      );
     }
 
     if (!apiKey) {
-      logUploadDebug("POST", "Validation failed", {
-        reason: "Missing apiKey",
+      return await finishFailure({
+        event: "asset.create",
+        context,
+        creatorId,
+        creatorType,
+        displayName: displayNameRaw || fileName,
+        fileName,
+        assetType,
+        status: 400,
+        error: "Missing API key. Enter your Roblox Open Cloud key in Settings.",
       });
-      return json(
-        {
-          ok: false,
-          error: "Missing API key. Enter your Roblox Open Cloud key in Settings.",
-        },
-        { status: 400 },
-      );
     }
 
-    const displayName = formatRobloxAssetName(
-      displayNameRaw || fileCandidate.name,
-    );
+    displayName = formatRobloxAssetName(displayNameRaw || fileCandidate.name);
 
     const result = await createRobloxAsset({
       apiKey,
       creatorId,
       creatorType,
-      assetType,
+      assetType: resolvedType,
       displayName,
       file: fileCandidate,
     });
 
-    const response: UploadApiResponse = {
-      ok: true,
+    await writeAuditLog({
+      ts: new Date().toISOString(),
+      event: "asset.create",
+      actor: context.actor,
+      creatorId,
+      creatorType,
       assetId: result.assetId,
-      operationId: result.operationId,
-    };
+      displayName,
+      fileName,
+      assetType,
+      status: "success",
+      durationMs: Date.now() - context.startedAt,
+      requestId: context.requestId,
+    });
+
+    recordUploadSuccess(Date.now() - context.startedAt);
 
     logUploadDebug("POST", "Upload success", {
-      fileName: fileCandidate.name,
-      fileType: fileCandidate.type,
-      fileSize: fileCandidate.size,
+      fileName,
       assetType,
       creatorType,
       creatorId,
       resultingAssetId: result.assetId,
       operationId: result.operationId,
+      requestId: context.requestId,
     });
 
-    return json(response, { status: 200 });
-  } catch (error) {
-    if (error instanceof RobloxUploadError) {
-      logUploadDebug("POST", "Roblox upload error", {
-        errorMessage: error.message,
-        statusCode: error.statusCode,
-      });
-      return json(
-        {
-          ok: false,
-          error: error.message,
-        },
-        { status: error.statusCode },
-      );
-    }
-
-    if (error instanceof Error) {
-      logUploadDebug("POST", "Unexpected server error", {
-        errorMessage: error.message,
-      });
-      return json({ ok: false, error: error.message }, { status: 500 });
-    }
-
-    logUploadDebug("POST", "Unknown non-error throw", {});
     return json(
-      { ok: false, error: "Unexpected upload error occurred." },
-      { status: 500 },
+      {
+        ok: true,
+        assetId: result.assetId,
+        operationId: result.operationId,
+      },
+      { status: 200 },
     );
+  } catch (error) {
+    return await handleUploadError(error, {
+      event: "asset.create",
+      context,
+      creatorId,
+      creatorType,
+      displayName,
+      fileName,
+      assetType,
+      method: "POST",
+    });
   }
+}
+
+async function finishFailure(options: {
+  event: AuditEventType;
+  context: UploadContext;
+  creatorId: string;
+  creatorType: CreatorType;
+  displayName: string;
+  fileName: string;
+  assetType: string;
+  status: number;
+  error: string;
+}): Promise<Response> {
+  const friendlyError = translateUploadError(options.error);
+  const durationMs = Date.now() - options.context.startedAt;
+
+  recordUploadFailure(durationMs, {
+    rateLimited: isRateLimitError(options.status, friendlyError),
+  });
+
+  await writeAuditLog({
+    ts: new Date().toISOString(),
+    event: options.event,
+    actor: options.context.actor,
+    creatorId: options.creatorId || "unknown",
+    creatorType: options.creatorType,
+    displayName: options.displayName || options.fileName || "unknown",
+    fileName: options.fileName || "unknown",
+    assetType: options.assetType,
+    status: "failure",
+    error: sanitizeAuditError(friendlyError),
+    durationMs: Date.now() - options.context.startedAt,
+    requestId: options.context.requestId,
+  });
+
+  return json({ ok: false, error: friendlyError }, { status: options.status });
+}
+
+async function handleUploadError(
+  error: unknown,
+  options: {
+    event: AuditEventType;
+    context: UploadContext;
+    creatorId: string;
+    creatorType: CreatorType;
+    displayName: string;
+    fileName: string;
+    assetType: string;
+    method: "POST" | "PATCH";
+  },
+): Promise<Response> {
+  if (error instanceof RobloxUploadError) {
+    const friendlyError = translateUploadError(error.message);
+    const durationMs = Date.now() - options.context.startedAt;
+    logUploadDebug(options.method, "Roblox upload error", {
+      errorMessage: friendlyError,
+      statusCode: error.statusCode,
+      requestId: options.context.requestId,
+    });
+
+    recordUploadFailure(durationMs, {
+      rateLimited: isRateLimitError(error.statusCode, friendlyError),
+    });
+
+    await writeAuditLog({
+      ts: new Date().toISOString(),
+      event: options.event,
+      actor: options.context.actor,
+      creatorId: options.creatorId || "unknown",
+      creatorType: options.creatorType,
+      displayName: options.displayName || options.fileName || "unknown",
+      fileName: options.fileName || "unknown",
+      assetType: options.assetType,
+      status: "failure",
+      error: sanitizeAuditError(friendlyError),
+      durationMs: Date.now() - options.context.startedAt,
+      requestId: options.context.requestId,
+    });
+
+    return json({ ok: false, error: friendlyError }, { status: error.statusCode });
+  }
+
+  if (error instanceof Error) {
+    const friendlyError = translateUploadError(error.message);
+    const durationMs = Date.now() - options.context.startedAt;
+    logUploadDebug(options.method, "Unexpected server error", {
+      errorMessage: friendlyError,
+      requestId: options.context.requestId,
+    });
+
+    recordUploadFailure(durationMs);
+
+    await writeAuditLog({
+      ts: new Date().toISOString(),
+      event: options.event,
+      actor: options.context.actor,
+      creatorId: options.creatorId || "unknown",
+      creatorType: options.creatorType,
+      displayName: options.displayName || options.fileName || "unknown",
+      fileName: options.fileName || "unknown",
+      assetType: options.assetType,
+      status: "failure",
+      error: sanitizeAuditError(friendlyError),
+      durationMs: Date.now() - options.context.startedAt,
+      requestId: options.context.requestId,
+    });
+
+    return json({ ok: false, error: friendlyError }, { status: 500 });
+  }
+
+  logUploadDebug(options.method, "Unknown non-error throw", {
+    requestId: options.context.requestId,
+  });
+  return json(
+    { ok: false, error: "Unexpected upload error occurred." },
+    { status: 500 },
+  );
 }
 
 function json(payload: UploadApiResponse, init?: ResponseInit): Response {
@@ -316,10 +541,24 @@ function logUploadDebug(
     return;
   }
 
+  const safeDetails = { ...details };
+  delete safeDetails.apiKey;
+
   console.error("[upload-debug]", {
     method,
     message,
-    ...details,
+    ...safeDetails,
     at: new Date().toISOString(),
   });
+}
+
+function parseUploadAttempt(request: Request): number {
+  const raw =
+    request.headers.get("x-upload-attempt") ??
+    request.headers.get("X-Upload-Attempt");
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 1;
+  }
+  return Math.floor(parsed);
 }

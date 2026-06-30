@@ -41,7 +41,14 @@ export const siteConfig = {
     "Roblox mesh upload Open Cloud",
     "Roblox creator tools",
     "self-hosted Roblox uploader",
+    "Roblox asset pipeline",
+    "studio Open Cloud tooling",
+    "Roblox enterprise self-host",
+    "Docker Roblox uploader",
   ],
+  routes: {
+    teams: "/teams",
+  },
   links: {
     github: "https://github.com/star-ot/rblxuploads",
     robloxCredentials: "https://create.roblox.com/dashboard/credentials",

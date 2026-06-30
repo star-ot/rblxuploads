@@ -1,3 +1,4 @@
+import { DEFAULT_UPLOAD_CONFIG } from "@/lib/config/constants";
 import type { CredentialProfile, UploadConfig } from "@/lib/types";
 
 /** Sample profiles for landing demos — not real secrets. */
@@ -32,10 +33,9 @@ export const DEMO_CREDENTIAL_PROFILES: CredentialProfile[] = [
 ];
 
 export const DEMO_UPLOAD_CONFIG: UploadConfig = {
+  ...DEFAULT_UPLOAD_CONFIG,
   profiles: DEMO_CREDENTIAL_PROFILES,
   activeProfileId: "demo-profile-main-group",
-  concurrency: 4,
-  maxRetries: 2,
 };
 
 /** Static label for hero mock chrome — matches default demo active profile. */

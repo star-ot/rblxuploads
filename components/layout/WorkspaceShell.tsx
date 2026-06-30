@@ -22,6 +22,7 @@ interface WorkspaceShellProps {
   config?: UploadConfig;
   onConfigChange?: (next: UploadConfig) => void;
   configSwitcherDisabled?: boolean;
+  onOpenShortcuts?: () => void;
 }
 
 const NAV_ITEMS: { id: WorkspaceView; label: string; icon: typeof IconQueue }[] = [
@@ -39,6 +40,7 @@ export function WorkspaceShell({
   config,
   onConfigChange,
   configSwitcherDisabled = false,
+  onOpenShortcuts,
 }: WorkspaceShellProps) {
   return (
     <div className="app-shell flex min-h-dvh flex-col">
@@ -101,6 +103,16 @@ export function WorkspaceShell({
                 onOpenSettings={() => onViewChange("settings")}
                 disabled={configSwitcherDisabled}
               />
+            ) : null}
+            {onOpenShortcuts ? (
+              <button
+                type="button"
+                className="btn-ghost hidden text-[11px] sm:inline-flex"
+                onClick={onOpenShortcuts}
+                aria-label="Keyboard shortcuts"
+              >
+                ?
+              </button>
             ) : null}
             <p className="hidden font-mono text-[11px] text-[var(--text-faint)] lg:block">
               Local workspace

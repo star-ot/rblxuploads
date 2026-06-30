@@ -1,0 +1,13 @@
+{
+  "defaultProfile": "main-group",
+  "profiles": {
+    "main-group": {
+      "creatorId": "YOUR_GROUP_ID",
+      "creatorType": "group"
+    },
+    "personal": {
+      "creatorId": "YOUR_USER_ID",
+      "creatorType": "user"
+    }
+  }
+}

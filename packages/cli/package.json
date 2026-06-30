@@ -1,0 +1,13 @@
+{
+  "name": "studio-vault-cli",
+  "version": "0.4.0",
+  "description": "Headless Studio Vault CLI for CI/CD Open Cloud uploads",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "studio-vault": "./bin/studio-vault.mjs"
+  },
+  "files": [
+    "bin"
+  ]
+}

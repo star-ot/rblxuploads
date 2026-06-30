@@ -1,18 +1,18 @@
 "use client";
-/* eslint-disable @next/next/no-img-element */
 
 import { useMemo, useState } from "react";
-import { LibraryGooeySearch } from "@/components/library/LibraryGooeySearch";
+import { LibraryAssetTable } from "@/components/library/LibraryAssetTable";
+import { LibraryCollectionsLayout } from "@/components/library/LibraryCollectionsLayout";
+import { LibraryFilterBar } from "@/components/library/LibraryFilterBar";
+import { LibraryFooterSummary } from "@/components/library/LibraryFooterSummary";
+import { LibraryTagsToolbar } from "@/components/library/LibraryTagsToolbar";
 import {
   ALL_FOLDERS_OPTION,
   LibraryFolderPanel,
 } from "@/components/library/LibraryFolderPanel";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { IconCopy, IconSearch } from "@/components/ui/Icon";
-import {
-  filterDemoLibraryAssets,
-  getAssetTypeGlyph,
-} from "@/lib/demo-library-assets";
+import { LibraryStatusSlot } from "@/components/library/LibraryStatusSlot";
+import { IconSearch } from "@/components/ui/Icon";
+import { filterDemoLibraryAssets } from "@/lib/demo-library-assets";
 import {
   createDemoFolder,
   createInitialDemoLibraryState,
@@ -28,28 +28,21 @@ import {
   joinFolderPath,
   ROOT_FOLDER,
 } from "@/lib/folder-tree";
+import {
+  DEFAULT_LIBRARY_SORT,
+  sortLibraryAssets,
+  toggleLibrarySort,
+  type LibrarySortColumn,
+  type LibrarySortState,
+} from "@/lib/library-sort";
+import {
+  collectUniqueTags,
+  mergeTags,
+  normalizeTag,
+  removeTag,
+} from "@/lib/library-tags";
 import { normalizeFolderPath } from "@/lib/local-assets-db";
-import type { AssetType, LocalAssetRecord } from "@/lib/types";
-
-type SortKey = "newest" | "oldest" | "name-asc" | "name-desc" | "type";
-
-function AssetPreviewThumb({ asset }: { asset: LocalAssetRecord }) {
-  if (asset.thumbnailDataUrl) {
-    return (
-      <img
-        src={asset.thumbnailDataUrl}
-        alt=""
-        className="h-8 w-8 rounded border border-[var(--border-subtle)] object-cover"
-      />
-    );
-  }
-
-  return (
-    <div className="flex h-8 w-8 items-center justify-center rounded border border-[var(--border-subtle)] bg-[var(--surface-inset)] text-[10px] font-medium text-[var(--text-muted)]">
-      {getAssetTypeGlyph(asset.type)}
-    </div>
-  );
-}
+import type { AssetType } from "@/lib/types";
 
 export function LandingDemoLibrary() {
   const [library, setLibrary] = useState(createInitialDemoLibraryState);
@@ -57,14 +50,15 @@ export function LandingDemoLibrary() {
   const [typeFilter, setTypeFilter] = useState<AssetType | "all">("all");
   const [folderFilter, setFolderFilter] = useState(ALL_FOLDERS_OPTION);
   const [tagFilter, setTagFilter] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("newest");
+  const [sort, setSort] = useState<LibrarySortState>(DEFAULT_LIBRARY_SORT);
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
   const [selectedFolder, setSelectedFolder] = useState(ROOT_FOLDER);
   const [expandedFolderPaths, setExpandedFolderPaths] = useState<Set<string>>(
     () => new Set([ROOT_FOLDER]),
   );
+  const [viewVersionByAssetId, setViewVersionByAssetId] = useState<Record<string, string>>({});
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
 
   const { assets, folders } = library;
 
@@ -82,24 +76,8 @@ export function LandingDemoLibrary() {
       return asset.tags.some((tag) => tag.toLowerCase().includes(tagText));
     });
 
-    next.sort((a, b) => {
-      switch (sortKey) {
-        case "oldest":
-          return a.createdAt - b.createdAt;
-        case "name-asc":
-          return a.name.localeCompare(b.name);
-        case "name-desc":
-          return b.name.localeCompare(a.name);
-        case "type":
-          return a.type.localeCompare(b.type) || a.name.localeCompare(b.name);
-        case "newest":
-        default:
-          return b.createdAt - a.createdAt;
-      }
-    });
-
-    return next;
-  }, [assets, folderFilter, search, sortKey, tagFilter, typeFilter]);
+    return sortLibraryAssets(next, sort);
+  }, [assets, folderFilter, search, sort, tagFilter, typeFilter]);
 
   const folderPaths = useMemo(() => {
     const unique = new Set<string>(folders);
@@ -110,7 +88,103 @@ export function LandingDemoLibrary() {
 
   const folderTree = useMemo(() => buildFolderTree(folderPaths), [folderPaths]);
   const nestedFolderAssetCounts = useMemo(() => buildNestedAssetCounts(assets), [assets]);
+  const libraryTags = useMemo(
+    () => collectUniqueTags(assets, { sort: "count" }),
+    [assets],
+  );
   const selectedCount = selectedAssetIds.size;
+
+  function updateDemoAssetTags(assetId: string, tags: string[]) {
+    setLibrary((current) => ({
+      ...current,
+      assets: current.assets.map((asset) =>
+        asset.id === assetId ? { ...asset, tags, updatedAt: Date.now() } : asset,
+      ),
+    }));
+  }
+
+  function addDemoTag(assetId: string, rawTag: string) {
+    const tag = normalizeTag(rawTag);
+    if (!tag) {
+      return;
+    }
+    const asset = assets.find((entry) => entry.id === assetId);
+    if (!asset) {
+      return;
+    }
+    updateDemoAssetTags(assetId, mergeTags(asset.tags, [tag]));
+  }
+
+  function removeDemoTag(assetId: string, rawTag: string) {
+    const asset = assets.find((entry) => entry.id === assetId);
+    if (!asset) {
+      return;
+    }
+    updateDemoAssetTags(assetId, removeTag(asset.tags, rawTag));
+  }
+
+  function applyDemoBulkTags(tags: string[]) {
+    const normalized = tags.map(normalizeTag).filter(Boolean);
+    if (!selectedAssetIds.size || !normalized.length) {
+      setStatusMessage("Select assets and enter tags first.");
+      return;
+    }
+
+    const ids = selectedAssetIds;
+    setLibrary((current) => ({
+      ...current,
+      assets: current.assets.map((asset) =>
+        ids.has(asset.id)
+          ? { ...asset, tags: mergeTags(asset.tags, normalized), updatedAt: Date.now() }
+          : asset,
+      ),
+    }));
+    setStatusMessage(`Tagged ${ids.size} assets.`);
+  }
+
+  function removeDemoBulkTag(rawTag: string) {
+    const tag = normalizeTag(rawTag);
+    if (!selectedAssetIds.size || !tag) {
+      setStatusMessage("Select assets and choose a tag to remove.");
+      return;
+    }
+
+    const ids = selectedAssetIds;
+    let changed = 0;
+    setLibrary((current) => ({
+      ...current,
+      assets: current.assets.map((asset) => {
+        if (!ids.has(asset.id)) {
+          return asset;
+        }
+        const nextTags = removeTag(asset.tags, tag);
+        if (nextTags.length === asset.tags.length) {
+          return asset;
+        }
+        changed += 1;
+        return { ...asset, tags: nextTags, updatedAt: Date.now() };
+      }),
+    }));
+
+    setStatusMessage(
+      changed > 0
+        ? `Removed "${tag}" from ${changed} assets.`
+        : `No selected assets had the tag "${tag}".`,
+    );
+  }
+
+  function deleteDemoSelected() {
+    const ids = selectedAssetIds;
+    if (!ids.size) {
+      return;
+    }
+    setLibrary((current) => ({
+      ...current,
+      assets: current.assets.filter((asset) => !ids.has(asset.id)),
+    }));
+    setSelectedAssetIds(new Set());
+    setStatusMessage(`Removed ${ids.size} assets from the demo library.`);
+  }
 
   function expandToFolder(folderPath: string) {
     setExpandedFolderPaths((current) => {
@@ -149,7 +223,7 @@ export function LandingDemoLibrary() {
     setSearch("");
     setTagFilter("");
     setTypeFilter("all");
-    setSortKey("newest");
+    setSort(DEFAULT_LIBRARY_SORT);
     setFolderFilter(ALL_FOLDERS_OPTION);
     setSelectedFolder(ROOT_FOLDER);
   }
@@ -271,6 +345,10 @@ export function LandingDemoLibrary() {
     setStatusMessage(`Moved ${ids.length} assets to ${target}.`);
   }
 
+  function handleSort(column: LibrarySortColumn) {
+    setSort((current) => toggleLibrarySort(current, column));
+  }
+
   const activeFolder =
     folderFilter === ALL_FOLDERS_OPTION
       ? "All assets"
@@ -284,225 +362,107 @@ export function LandingDemoLibrary() {
             Asset library
           </h3>
           <p className="caption max-w-prose">
-            Full workspace preview — create folders, rename, reparent, delete, select assets, and
-            drag them onto collections. Changes reset on refresh.
+            Full workspace preview — collections, tags, version history, and drag-to-move. Re-upload
+            an asset and prior rbxassetids stay in the chain. Changes reset on refresh.
           </p>
           <p className="pt-1 font-mono text-xs text-[var(--text-faint)]">
-            {assets.length} assets · {folderPaths.length} folders ·{" "}
-            {searchOpen ? "search expanded" : "search collapsed"}
+            {assets.length} assets · {folderPaths.length} folders
           </p>
         </div>
       </div>
 
-      <div className="grid gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="sm:col-span-2">
-          <LibraryGooeySearch
-            value={search}
-            onValueChange={setSearch}
-            onOpenChange={setSearchOpen}
-            collapsedWidth={240}
-            expandedWidth={420}
-            expandedOffset={52}
+      <LibraryFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        typeFilter={typeFilter}
+        onTypeFilterChange={setTypeFilter}
+        onReset={clearFilters}
+        selectedCount={selectedCount}
+        selectionActions={
+          <button
+            type="button"
+            className="library-compact-btn btn-secondary"
+            onClick={deleteDemoSelected}
+          >
+            Delete
+          </button>
+        }
+      />
+
+      <div className="mt-1.5">
+        <LibraryTagsToolbar
+          allTags={libraryTags}
+          tagFilter={tagFilter}
+          onTagFilterChange={setTagFilter}
+          selectedCount={selectedCount}
+          onApplyTags={applyDemoBulkTags}
+          onRemoveTagFromSelection={removeDemoBulkTag}
+        />
+      </div>
+
+      <LibraryStatusSlot message={statusMessage} />
+
+      <LibraryCollectionsLayout
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        sidebar={
+          <LibraryFolderPanel
+            folderTree={folderTree}
+            folderPaths={folderPaths}
+            totalAssetCount={assets.length}
+            nestedAssetCounts={nestedFolderAssetCounts}
+            selectedFolder={selectedFolder}
+            folderFilter={folderFilter}
+            expandedPaths={expandedFolderPaths}
+            selectedAssetCount={selectedCount}
+            onSelectAllAssets={selectAllAssets}
+            onSelectFolder={selectFolder}
+            onToggleExpand={toggleFolderExpansion}
+            onCreateFolder={handleCreateFolder}
+            onRenameFolder={handleRenameFolder}
+            onReparentFolder={handleReparentFolder}
+            onDeleteFolder={handleDeleteFolder}
+            onMoveAssetsToFolder={handleMoveAssetsToFolder}
+            onDropAssets={handleMoveAssetsToFolder}
+            collapsible
+            onCollapse={() => setSidebarCollapsed(true)}
           />
-        </div>
-        <input
-          className="field-input"
-          placeholder="Filter by tag"
-          value={tagFilter}
-          onChange={(event) => setTagFilter(event.target.value)}
-          aria-label="Filter by tag"
+        }
+      >
+        <LibraryAssetTable
+          assets={filteredAssets}
+          sort={sort}
+          onSort={handleSort}
+          selectedAssetIds={selectedAssetIds}
+          onSelectionChange={setSelectedAssetIds}
+          viewVersionByAssetId={viewVersionByAssetId}
+          onViewVersionChange={(libraryAssetId, rbxAssetId) => {
+            setViewVersionByAssetId((current) => ({
+              ...current,
+              [libraryAssetId]: rbxAssetId,
+            }));
+          }}
+          onTagClick={setTagFilter}
+          onAddTag={addDemoTag}
+          onRemoveTag={removeDemoTag}
+          emptyState={{
+            icon: <IconSearch size={18} />,
+            title: "No assets found",
+            description:
+              assets.length === 0
+                ? "No demo assets available."
+                : "Try adjusting your search or filters — same empty state as the workspace.",
+          }}
         />
-        <div className="flex gap-2">
-          <select
-            className="field-input flex-1"
-            value={typeFilter}
-            onChange={(event) => setTypeFilter(event.target.value as AssetType | "all")}
-            aria-label="Filter by type"
-          >
-            <option value="all">All types</option>
-            <option value="Image">Image</option>
-            <option value="Audio">Audio</option>
-            <option value="Model">Model</option>
-            <option value="Mesh">Mesh</option>
-          </select>
-          <select
-            className="field-input flex-1"
-            value={sortKey}
-            onChange={(event) => setSortKey(event.target.value as SortKey)}
-            aria-label="Sort order"
-          >
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="name-asc">Name A–Z</option>
-            <option value="name-desc">Name Z–A</option>
-            <option value="type">Type</option>
-          </select>
-        </div>
-        <button type="button" className="btn-ghost justify-self-start text-[13px]" onClick={clearFilters}>
-          Reset filters
-        </button>
-      </div>
+      </LibraryCollectionsLayout>
 
-      {statusMessage ? (
-        <p className="alert alert-info mt-3 text-[13px]" role="status">
-          {statusMessage}
-        </p>
-      ) : null}
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
-        <LibraryFolderPanel
-          folderTree={folderTree}
-          folderPaths={folderPaths}
-          totalAssetCount={assets.length}
-          nestedAssetCounts={nestedFolderAssetCounts}
-          selectedFolder={selectedFolder}
-          folderFilter={folderFilter}
-          expandedPaths={expandedFolderPaths}
-          selectedAssetCount={selectedCount}
-          onSelectAllAssets={selectAllAssets}
-          onSelectFolder={selectFolder}
-          onToggleExpand={toggleFolderExpansion}
-          onCreateFolder={handleCreateFolder}
-          onRenameFolder={handleRenameFolder}
-          onReparentFolder={handleReparentFolder}
-          onDeleteFolder={handleDeleteFolder}
-          onMoveAssetsToFolder={handleMoveAssetsToFolder}
-          onDropAssets={handleMoveAssetsToFolder}
-        />
-
-        <div className="overflow-x-auto rounded-lg border border-[var(--border-subtle)]">
-          {filteredAssets.length === 0 ? (
-            <EmptyState
-              icon={<IconSearch size={18} />}
-              title="No assets found"
-              description={
-                assets.length === 0
-                  ? "No demo assets available."
-                  : "Try adjusting your search or filters — same empty state as the workspace."
-              }
-            />
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th className="w-10">
-                    <input
-                      type="checkbox"
-                      aria-label="Select all visible assets"
-                      checked={
-                        filteredAssets.length > 0 &&
-                        filteredAssets.every((asset) => selectedAssetIds.has(asset.id))
-                      }
-                      onChange={(event) => {
-                        if (event.target.checked) {
-                          setSelectedAssetIds(new Set(filteredAssets.map((asset) => asset.id)));
-                        } else {
-                          setSelectedAssetIds(new Set());
-                        }
-                      }}
-                    />
-                  </th>
-                  <th className="w-12" />
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>Asset ID</th>
-                  <th className="hidden md:table-cell">Collection</th>
-                  <th className="hidden lg:table-cell">Tags</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAssets.map((asset) => (
-                  <tr
-                    key={asset.id}
-                    draggable
-                    className="cursor-grab active:cursor-grabbing"
-                    onDragStart={(event) => {
-                      const ids = selectedAssetIds.has(asset.id)
-                        ? Array.from(selectedAssetIds)
-                        : [asset.id];
-                      event.dataTransfer.setData(
-                        "application/x-rblxuploads-assets",
-                        JSON.stringify(ids),
-                      );
-                      event.dataTransfer.effectAllowed = "move";
-                    }}
-                  >
-                    <td>
-                      <input
-                        type="checkbox"
-                        aria-label={`Select ${asset.name}`}
-                        checked={selectedAssetIds.has(asset.id)}
-                        onChange={(event) => {
-                          const next = new Set(selectedAssetIds);
-                          if (event.target.checked) {
-                            next.add(asset.id);
-                          } else {
-                            next.delete(asset.id);
-                          }
-                          setSelectedAssetIds(next);
-                        }}
-                      />
-                    </td>
-                    <td>
-                      <AssetPreviewThumb asset={asset} />
-                    </td>
-                    <td className="font-medium text-[var(--text-primary)]">{asset.name}</td>
-                    <td className="text-[var(--text-muted)]">{asset.type}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn-ghost max-w-[10rem] truncate p-1 font-mono text-[11px] sm:max-w-none"
-                        onClick={() => navigator.clipboard.writeText(asset.assetUri)}
-                        title="Click to copy"
-                      >
-                        <IconCopy size={12} className="mr-1 inline shrink-0" />
-                        {asset.assetId}
-                      </button>
-                    </td>
-                    <td className="hidden font-mono text-[11px] text-[var(--text-muted)] md:table-cell">
-                      {asset.folderPath}
-                    </td>
-                    <td className="hidden text-[var(--text-muted)] lg:table-cell">
-                      {asset.tags.length > 0 ? (
-                        <span className="flex flex-wrap gap-1">
-                          {asset.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="rounded px-1.5 py-0.5 font-mono text-[10px]"
-                              style={{ background: "var(--surface-hover)" }}
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      <p className="mt-4 text-center font-mono text-[11px] text-[var(--text-faint)]">
-        Showing {filteredAssets.length} of {assets.length} in{" "}
-        <span className="text-[var(--text-muted)]">{activeFolder}</span>
-        {search.trim() ? (
-          <>
-            {" "}
-            matching <span className="text-[var(--text-muted)]">&quot;{search.trim()}&quot;</span>
-          </>
-        ) : null}
-        {selectedCount > 0 ? (
-          <>
-            {" "}
-            · <span className="text-[var(--text-muted)]">{selectedCount} selected</span>
-          </>
-        ) : null}
-      </p>
+      <LibraryFooterSummary
+        visibleCount={filteredAssets.length}
+        totalCount={assets.length}
+        activeFolder={activeFolder}
+        search={search}
+        selectedCount={selectedCount}
+      />
     </div>
   );
 }

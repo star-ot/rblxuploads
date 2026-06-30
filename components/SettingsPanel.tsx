@@ -1,17 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   addProfile,
   duplicateProfile,
   getActiveProfile,
-  getProfileDisplayName,
   MAX_CREDENTIAL_PROFILES,
   removeProfile,
   setActiveProfileId,
   suggestProfileLabel,
   upsertProfile,
 } from "@/lib/config/credentials";
+import { InstanceInfoPanel } from "@/components/settings/InstanceInfoPanel";
+import { ObservabilityPanel } from "@/components/settings/ObservabilityPanel";
+import { PolicySettingsPanel } from "@/components/settings/PolicySettingsPanel";
+import { WebhookSettingsPanel } from "@/components/settings/WebhookSettingsPanel";
+import {
+  exportProfileMetadata,
+  importProfileMetadata,
+  type ProfileMetadataExport,
+} from "@/lib/config/profile-export";
 import type { CredentialProfile, CreatorType, UploadConfig } from "@/lib/types";
 import { CredentialProfileCard } from "@/components/CredentialProfileCard";
 import { SectionHeader } from "@/components/ui/SectionHeader";
@@ -38,6 +46,8 @@ export function SettingsPanel({
   const activeProfile = getActiveProfile(config);
   const [showApiKey, setShowApiKey] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingKeyExport, setPendingKeyExport] = useState(false);
+  const profileImportRef = useRef<HTMLInputElement>(null);
 
   function updateProfile(profile: CredentialProfile) {
     onChange(upsertProfile(config, profile));
@@ -111,16 +121,39 @@ export function SettingsPanel({
     setPendingDeleteId(null);
   }
 
+  function exportProfiles(includeApiKeys: boolean) {
+    const payload = exportProfileMetadata(config, { includeApiKeys });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `studio-vault-profiles-${Date.now()}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setPendingKeyExport(false);
+  }
+
+  async function importProfiles(file: File) {
+    const text = await file.text();
+    const payload = JSON.parse(text) as ProfileMetadataExport;
+    if (!payload.profiles || !Array.isArray(payload.profiles)) {
+      return;
+    }
+    onChange(importProfileMetadata(config, payload, { merge: true }));
+  }
+
   return (
-    <div className="flex max-w-5xl flex-col gap-5">
-      <section className="panel">
+    <div className="settings-panel flex w-full min-w-0 max-w-5xl flex-col gap-4 sm:gap-5">
+      <section className="panel w-full min-w-0">
         <SectionHeader
           title="Credential profiles"
           description="Save separate API keys for different users or groups. Everything stays in your browser — never on our servers."
         />
 
-        <div className="mt-5 flex flex-col gap-5 lg:flex-row">
-          <aside className="lg:w-72 lg:shrink-0">
+        <div className="mt-5 flex min-w-0 flex-col gap-5 lg:flex-row lg:items-start">
+          <aside className="w-full min-w-0 lg:w-72 lg:shrink-0">
             <div className="mb-3 flex items-center justify-between gap-2">
               <span className="label">Profiles</span>
               <span className="font-mono text-[11px] text-[var(--text-faint)]">
@@ -163,9 +196,9 @@ export function SettingsPanel({
 
           <div className="min-w-0 flex-1">
             {activeProfile ? (
-              <div className="credential-editor credential-editor-active">
-                <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-                  <div>
+              <div className="credential-editor credential-editor-active min-w-0">
+                <div className="settings-profile-toolbar mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <h3 className="text-sm font-medium text-[var(--text-primary)]">
                       Edit profile
                     </h3>
@@ -174,7 +207,7 @@ export function SettingsPanel({
                       or stored on disk.
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="settings-inline-actions flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                     <button
                       type="button"
                       className="btn-ghost text-xs"
@@ -234,7 +267,7 @@ export function SettingsPanel({
                         <IconExternal size={12} />
                       </a>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="settings-api-key-row flex flex-col gap-2 sm:flex-row sm:items-stretch">
                       <input
                         type={showApiKey ? "text" : "password"}
                         value={activeProfile.apiKey}
@@ -242,7 +275,7 @@ export function SettingsPanel({
                           updateProfileField("apiKey", event.target.value)
                         }
                         placeholder="Paste your Open Cloud API key"
-                        className="field-input font-mono text-sm"
+                        className="field-input min-w-0 flex-1 font-mono text-sm"
                         disabled={disabled}
                         autoComplete="new-password"
                         spellCheck={false}
@@ -251,7 +284,7 @@ export function SettingsPanel({
                       />
                       <button
                         type="button"
-                        className="btn-secondary shrink-0"
+                        className="btn-secondary w-full shrink-0 sm:w-auto"
                         onClick={() => setShowApiKey((current) => !current)}
                         disabled={disabled}
                       >
@@ -333,7 +366,7 @@ export function SettingsPanel({
         </div>
       </section>
 
-      <section className="panel max-w-3xl">
+      <section className="panel w-full min-w-0">
         <SectionHeader
           title="Upload queue"
           description="Shared across all credential profiles."
@@ -378,6 +411,69 @@ export function SettingsPanel({
           </label>
         </div>
       </section>
+
+      <section className="panel w-full min-w-0">
+        <SectionHeader
+          title="Team profile export"
+          description="Share profile labels and creator IDs with teammates. API keys are excluded unless you explicitly opt in."
+        />
+        <div className="settings-actions mt-4">
+          <button
+            type="button"
+            className="btn-secondary w-full sm:w-auto"
+            disabled={disabled || config.profiles.length === 0}
+            onClick={() => exportProfiles(false)}
+          >
+            Export metadata (no keys)
+          </button>
+          {!pendingKeyExport ? (
+            <button
+              type="button"
+              className="btn-ghost w-full text-[var(--danger-text)] sm:w-auto"
+              disabled={disabled}
+              onClick={() => setPendingKeyExport(true)}
+            >
+              Export with API keys…
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn-primary w-full bg-[var(--danger-bg)] text-[var(--danger-text)] sm:w-auto"
+              disabled={disabled}
+              onClick={() => exportProfiles(true)}
+            >
+              Confirm — keys will be in plaintext JSON
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn-secondary w-full sm:w-auto"
+            disabled={disabled}
+            onClick={() => profileImportRef.current?.click()}
+          >
+            Import profiles
+          </button>
+        </div>
+        <input
+          ref={profileImportRef}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void importProfiles(file);
+            event.target.value = "";
+          }}
+        />
+      </section>
+
+      <PolicySettingsPanel config={config} onChange={onChange} disabled={disabled} />
+
+      <WebhookSettingsPanel config={config} onChange={onChange} disabled={disabled} />
+
+      <ObservabilityPanel />
+
+      <InstanceInfoPanel />
     </div>
   );
 }

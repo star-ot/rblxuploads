@@ -30,6 +30,9 @@ export function LandingFooter() {
               <Link href="/workspace" className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]">
                 Workspace
               </Link>
+              <Link href="/teams" className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]">
+                Teams &amp; self-hosting
+              </Link>
               <a href="#faq" className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]">
                 FAQ
               </a>
@@ -43,6 +46,33 @@ export function LandingFooter() {
                 rel="noopener noreferrer"
               >
                 Source code
+              </a>
+            </div>
+            <div className="space-y-2">
+              <p className="label">Docs</p>
+              <a
+                href={`${siteConfig.links.github}/blob/main/docs/SECURITY.md`}
+                className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Security
+              </a>
+              <a
+                href={`${siteConfig.links.github}/blob/main/docs/DEPLOYMENT.md`}
+                className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Deployment
+              </a>
+              <a
+                href={`${siteConfig.links.github}/blob/main/docs/TEAM-WORKFLOWS.md`}
+                className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Team workflows
               </a>
             </div>
             <div className="space-y-2">

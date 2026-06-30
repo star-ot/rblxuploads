@@ -20,13 +20,14 @@ const LANDING_LINKS: NavLinkItem[] = [
   { label: "Credentials", href: "#credentials" },
   { label: "Demo", href: "#show-tell" },
   { label: "Features", href: "#features" },
-  { label: "Workflow", href: "#workflow" },
+  { label: "Teams", href: "/teams" },
   { label: "FAQ", href: "#faq" },
   { label: "Changelog", href: "/changelog" },
 ];
 
 const DEFAULT_LINKS: NavLinkItem[] = [
   { label: "Home", href: "/" },
+  { label: "Teams", href: "/teams" },
   { label: "Changelog", href: "/changelog" },
   { label: "FAQ", href: "/#faq" },
 ];

@@ -15,18 +15,34 @@ import {
   upsertLocalFolder,
 } from "@/lib/local-assets-db";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { LibraryGooeySearch } from "@/components/library/LibraryGooeySearch";
+import { LibraryAssetTable } from "@/components/library/LibraryAssetTable";
+import { LibraryActionsBar } from "@/components/library/LibraryActionsBar";
+import { LibraryCollectionsLayout } from "@/components/library/LibraryCollectionsLayout";
+import { LibraryFilterBar } from "@/components/library/LibraryFilterBar";
+import { LibraryTagsToolbar } from "@/components/library/LibraryTagsToolbar";
 import {
   ALL_FOLDERS_OPTION,
   LibraryFolderPanel,
 } from "@/components/library/LibraryFolderPanel";
 import { InsertServiceScriptTrigger } from "@/components/library/InsertServiceScriptGenerator";
+import { LibraryStatusSlot } from "@/components/library/LibraryStatusSlot";
+import { getAssetTypeGlyph } from "@/lib/library/asset-glyphs";
 import {
-  IconCopy,
   IconFolder,
-  IconSearch,
 } from "@/components/ui/Icon";
+import {
+  DEFAULT_LIBRARY_SORT,
+  sortLibraryAssets,
+  toggleLibrarySort,
+  type LibrarySortColumn,
+  type LibrarySortState,
+} from "@/lib/library-sort";
+import {
+  collectUniqueTags,
+  mergeTags,
+  normalizeTag,
+  removeTag,
+} from "@/lib/library-tags";
 import {
   type InsertScriptAsset,
   isInsertableStudioAsset,
@@ -40,6 +56,14 @@ import {
   joinFolderPath,
   ROOT_FOLDER,
 } from "@/lib/folder-tree";
+import { LibrarySyncModal } from "@/components/library/LibrarySyncModal";
+import { normalizeImportedAssets, parseLibraryImport } from "@/lib/library/import";
+import { serializeCompactExport, toCompactExport } from "@/lib/library/export";
+import { createOptimizedPreview } from "@/lib/library/preview";
+import {
+  normalizeAssetVersions,
+  replaceAssetVersion,
+} from "@/lib/library/versioning";
 import { canUpdateModelPackage } from "@/lib/file-parser";
 import { validateActiveProfile } from "@/lib/config/credentials";
 import { updateModelPackage } from "@/lib/upload/client";
@@ -51,24 +75,34 @@ import type {
   UploadQueueItem,
 } from "@/lib/types";
 
-type SortKey = "newest" | "oldest" | "name-asc" | "name-desc" | "type";
-
 interface AssetLibraryManagerProps {
   items: UploadQueueItem[];
   config: UploadConfig;
+  onNotify?: (message: string, tone?: "info" | "success" | "error") => void;
+  onQueueVersionUpload?: (payload: {
+    libraryAssetId: string;
+    file: File;
+    assetName: string;
+  }) => void;
 }
 
-export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps) {
+export function AssetLibraryManager({
+  items,
+  config,
+  onNotify,
+  onQueueVersionUpload,
+}: AssetLibraryManagerProps) {
   const [assets, setAssets] = useState<LocalAssetRecord[]>([]);
   const [folders, setFolders] = useState<string[]>([ROOT_FOLDER]);
+  const [libraryLoading, setLibraryLoading] = useState(true);
+  const [syncOpen, setSyncOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | AssetType>("all");
   const [folderFilter, setFolderFilter] = useState(ALL_FOLDERS_OPTION);
   const [tagFilter, setTagFilter] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("newest");
+  const [sort, setSort] = useState<LibrarySortState>(DEFAULT_LIBRARY_SORT);
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
   const [selectedFolder, setSelectedFolder] = useState(ROOT_FOLDER);
-  const [bulkTagInput, setBulkTagInput] = useState("");
   const [managerStatus, setManagerStatus] = useState("");
   const [targetModelAssetId, setTargetModelAssetId] = useState("");
   const [targetModelName, setTargetModelName] = useState("");
@@ -77,8 +111,12 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
     () => new Set([ROOT_FOLDER]),
   );
   const modelFileRef = useRef<HTMLInputElement>(null);
+  const versionFileRef = useRef<HTMLInputElement>(null);
+  const versionTargetRef = useRef<LocalAssetRecord | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
   const persistedUploadIds = useRef(new Set<string>());
+  const [viewVersionByAssetId, setViewVersionByAssetId] = useState<Record<string, string>>({});
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     void refreshLibrary();
@@ -97,24 +135,63 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
     }
 
     void (async () => {
+      const libraryById = new Map(
+        (await listLocalAssets()).map((asset) => [
+          asset.id,
+          normalizeAssetVersions(asset),
+        ]),
+      );
+      const resetVersionViewFor: string[] = [];
+
       for (const item of newlyCompleted) {
         persistedUploadIds.current.add(item.id);
         const thumbnailDataUrl =
           item.assetType === "Image"
-            ? await createImageThumbnailDataUrl(item.file)
+            ? await createOptimizedPreview(item.file)
             : undefined;
-        await upsertLocalAsset({
-          id: crypto.randomUUID(),
-          name: item.assetName,
-          type: item.assetType,
-          assetId: item.assetId ?? "",
-          assetUri: `rbxassetid://${item.assetId}`,
-          thumbnailDataUrl,
-          fileName: item.fileName,
-          folderPath: ROOT_FOLDER,
-          tags: [],
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
+
+        const replaceTarget = item.replaceLibraryAssetId
+          ? libraryById.get(item.replaceLibraryAssetId)
+          : undefined;
+
+        if (replaceTarget && item.assetId) {
+          const updated = replaceAssetVersion(replaceTarget, {
+            assetId: item.assetId,
+            fileName: item.fileName,
+            name: item.assetName,
+            thumbnailDataUrl,
+          });
+          await upsertLocalAsset(updated);
+          libraryById.set(updated.id, updated);
+          resetVersionViewFor.push(updated.id);
+          continue;
+        }
+
+        await upsertLocalAsset(
+          normalizeAssetVersions({
+            id: crypto.randomUUID(),
+            name: item.assetName,
+            type: item.assetType,
+            assetId: item.assetId ?? "",
+            assetUri: `rbxassetid://${item.assetId}`,
+            thumbnailDataUrl,
+            fileName: item.fileName,
+            folderPath: ROOT_FOLDER,
+            tags: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            versions: [],
+          }),
+        );
+      }
+
+      if (resetVersionViewFor.length) {
+        setViewVersionByAssetId((current) => {
+          const next = { ...current };
+          for (const assetId of resetVersionViewFor) {
+            delete next[assetId];
+          }
+          return next;
         });
       }
 
@@ -160,24 +237,8 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
       return haystack.includes(searchText);
     });
 
-    next.sort((a, b) => {
-      switch (sortKey) {
-        case "oldest":
-          return a.createdAt - b.createdAt;
-        case "name-asc":
-          return a.name.localeCompare(b.name);
-        case "name-desc":
-          return b.name.localeCompare(a.name);
-        case "type":
-          return a.type.localeCompare(b.type) || a.name.localeCompare(b.name);
-        case "newest":
-        default:
-          return b.createdAt - a.createdAt;
-      }
-    });
-
-    return next;
-  }, [assets, folderFilter, search, sortKey, tagFilter, typeFilter]);
+    return sortLibraryAssets(next, sort);
+  }, [assets, folderFilter, search, sort, tagFilter, typeFilter]);
 
   const folderPaths = useMemo(() => {
     const unique = new Set<string>(folders);
@@ -190,13 +251,65 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
 
   const nestedFolderAssetCounts = useMemo(() => buildNestedAssetCounts(assets), [assets]);
 
+  const libraryTags = useMemo(
+    () => collectUniqueTags(assets, { sort: "count" }),
+    [assets],
+  );
+
   async function refreshLibrary() {
     const [nextAssets, nextFolders] = await Promise.all([
       listLocalAssets(),
       listLocalFolders(),
     ]);
-    setAssets(nextAssets);
+    setAssets(nextAssets.map((asset) => normalizeAssetVersions(asset)));
     setFolders(nextFolders);
+    setLibraryLoading(false);
+  }
+
+  function notify(message: string, tone: "info" | "success" | "error" = "info") {
+    setManagerStatus(message);
+    onNotify?.(message, tone);
+  }
+
+  async function persistAssetTags(assetId: string, tags: string[]) {
+    const asset = assets.find((entry) => entry.id === assetId);
+    if (!asset) {
+      return;
+    }
+
+    const updated: LocalAssetRecord = {
+      ...asset,
+      tags,
+      updatedAt: Date.now(),
+    };
+
+    await upsertLocalAsset(updated);
+    setAssets((current) =>
+      current.map((entry) => (entry.id === assetId ? updated : entry)),
+    );
+  }
+
+  async function addTagToAsset(assetId: string, rawTag: string) {
+    const tag = normalizeTag(rawTag);
+    if (!tag) {
+      return;
+    }
+
+    const asset = assets.find((entry) => entry.id === assetId);
+    if (!asset) {
+      return;
+    }
+
+    await persistAssetTags(assetId, mergeTags(asset.tags, [tag]));
+  }
+
+  async function removeTagFromAsset(assetId: string, rawTag: string) {
+    const asset = assets.find((entry) => entry.id === assetId);
+    if (!asset) {
+      return;
+    }
+
+    await persistAssetTags(assetId, removeTag(asset.tags, rawTag));
   }
 
   async function createFolder(parentPath: string, name: string) {
@@ -346,7 +459,7 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
     setSearch("");
     setTagFilter("");
     setTypeFilter("all");
-    setSortKey("newest");
+    setSort(DEFAULT_LIBRARY_SORT);
     setFolderFilter(ALL_FOLDERS_OPTION);
     setSelectedFolder(ROOT_FOLDER);
   }
@@ -377,12 +490,9 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
     await refreshLibrary();
   }
 
-  async function applyBulkTags() {
-    const tags = bulkTagInput
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter(Boolean);
-    if (!selectedAssetIds.size || !tags.length) {
+  async function applyBulkTags(tags: string[]) {
+    const normalized = tags.map(normalizeTag).filter(Boolean);
+    if (!selectedAssetIds.size || !normalized.length) {
       setManagerStatus("Select assets and enter tags first.");
       return;
     }
@@ -392,13 +502,48 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
       .filter((asset) => ids.has(asset.id))
       .map((asset) => ({
         ...asset,
-        tags: Array.from(new Set([...asset.tags, ...tags])),
+        tags: mergeTags(asset.tags, normalized),
         updatedAt: Date.now(),
       }));
     await bulkUpsertLocalAssets(updates);
-    setBulkTagInput("");
+    setAssets((current) => {
+      const updateMap = new Map(updates.map((asset) => [asset.id, asset]));
+      return current.map((asset) => updateMap.get(asset.id) ?? asset);
+    });
     setManagerStatus(`Tagged ${updates.length} assets.`);
-    await refreshLibrary();
+  }
+
+  async function removeBulkTagFromSelection(rawTag: string) {
+    const tag = normalizeTag(rawTag);
+    if (!selectedAssetIds.size || !tag) {
+      setManagerStatus("Select assets and choose a tag to remove.");
+      return;
+    }
+
+    const ids = selectedAssetIds;
+    const updates = assets
+      .filter((asset) => ids.has(asset.id))
+      .map((asset) => ({
+        ...asset,
+        tags: removeTag(asset.tags, tag),
+        updatedAt: Date.now(),
+      }))
+      .filter((asset, index, list) => {
+        const original = assets.find((entry) => entry.id === list[index].id);
+        return original ? original.tags.length !== asset.tags.length : false;
+      });
+
+    if (!updates.length) {
+      setManagerStatus(`No selected assets had the tag "${tag}".`);
+      return;
+    }
+
+    await bulkUpsertLocalAssets(updates);
+    setAssets((current) => {
+      const updateMap = new Map(updates.map((asset) => [asset.id, asset]));
+      return current.map((asset) => updateMap.get(asset.id) ?? asset);
+    });
+    setManagerStatus(`Removed "${tag}" from ${updates.length} assets.`);
   }
 
   async function deleteSelected() {
@@ -419,10 +564,10 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
     label: string,
   ) {
     const payload: LocalAssetExportPayload = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       exportedAt: new Date().toISOString(),
       folders: selectedFolders,
-      assets: selected,
+      assets: selected.map((asset) => normalizeAssetVersions(asset)),
     };
 
     let blob: Blob;
@@ -482,6 +627,45 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
     );
   }
 
+  function exportCompactSelection() {
+    const selected = assets.filter((asset) => selectedAssetIds.has(asset.id));
+    if (!selected.length) {
+      setManagerStatus("Select at least one asset to export.");
+      return;
+    }
+    const payload = toCompactExport(selected, getFoldersFromAssets(selected));
+    const blob = new Blob([serializeCompactExport(payload)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `studio-vault-compact-${Date.now()}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setManagerStatus(
+      `Exported ${selected.length} assets as compact JSON (${Math.round(blob.size / 1024)} KB).`,
+    );
+  }
+
+  function queueNewVersion(asset: LocalAssetRecord) {
+    versionTargetRef.current = asset;
+    versionFileRef.current?.click();
+  }
+
+  function handleVersionFileSelected(file: File | undefined) {
+    const target = versionTargetRef.current;
+    versionTargetRef.current = null;
+    if (!file || !target) {
+      return;
+    }
+    onQueueVersionUpload?.({
+      libraryAssetId: target.id,
+      file,
+      assetName: target.name,
+    });
+  }
+
   function exportSelection(format: "json" | "csv") {
     const selected = assets.filter((asset) => selectedAssetIds.has(asset.id));
     if (!selected.length) {
@@ -511,33 +695,14 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
       const text = await file.text();
       const parsedImport = file.name.toLowerCase().endsWith(".csv")
         ? { assets: parseCsvImport(text), folders: [] as string[] }
-        : parseJsonImport(text);
+        : parseLibraryImport(text);
       const imported = parsedImport.assets;
       const importedFolders = parsedImport.folders;
 
-      const normalized = imported
-        .filter((asset): asset is Partial<LocalAssetRecord> & { name: string; assetId: string } =>
-          Boolean(asset.name && asset.assetId),
-        )
-        .map((asset) => ({
-          // Imports are additive only: always allocate a fresh local record id
-          // so existing library entries are never overwritten.
-          id: crypto.randomUUID(),
-          name: asset.name,
-          type: normalizeImportedType(asset.type),
-          assetId: asset.assetId,
-          assetUri: asset.assetUri || `rbxassetid://${asset.assetId}`,
-          thumbnailDataUrl:
-            typeof asset.thumbnailDataUrl === "string" ? asset.thumbnailDataUrl : undefined,
-          folderPath: normalizeFolderPath(asset.folderPath || ROOT_FOLDER),
-          tags: asset.tags ?? [],
-          fileName: asset.fileName ?? `${asset.name}.asset`,
-          createdAt: asset.createdAt || Date.now(),
-          updatedAt: Date.now(),
-        }));
+      const normalized = normalizeImportedAssets(imported);
 
       if (!normalized.length && !importedFolders.length) {
-        setManagerStatus("No importable folders or assets were found in the selected file.");
+        notify("No importable folders or assets were found in the selected file.");
         return;
       }
 
@@ -546,14 +711,30 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
       }
       await bulkUpsertLocalAssets(normalized);
       await refreshLibrary();
-      setManagerStatus(
+      notify(
         `Imported ${normalized.length} assets and ${importedFolders.length} folders from ${file.name}.`,
+        "success",
       );
     } catch {
-      setManagerStatus(
+      notify(
         "Import failed. Use a JSON export payload or CSV with matching columns.",
+        "error",
       );
     }
+  }
+
+  async function mergeSyncedLibrary(
+    mergedAssets: LocalAssetRecord[],
+    mergedFolders: string[],
+  ) {
+    if (mergedFolders.length) {
+      await bulkUpsertLocalFolders(mergedFolders);
+    }
+    if (mergedAssets.length) {
+      await bulkUpsertLocalAssets(mergedAssets);
+    }
+    await refreshLibrary();
+    notify(`Merged ${mergedAssets.length} assets from repo sync.`, "success");
   }
 
   async function runModelUpdate() {
@@ -589,24 +770,46 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
       return;
     }
 
-    await upsertLocalAsset({
-      id: crypto.randomUUID(),
-      name: targetModelName.trim() || file.name,
-      type: "Model",
-      assetId: response.assetId,
-      assetUri: `rbxassetid://${response.assetId}`,
-      fileName: file.name,
-      folderPath: ROOT_FOLDER,
-      tags: ["updated-package"],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
+    const existing = assets.find((asset) => asset.assetId === targetModelAssetId.trim());
+    const thumbnailDataUrl =
+      existing?.thumbnailDataUrl ??
+      (await createOptimizedPreview(file));
+
+    if (existing) {
+      const updated = replaceAssetVersion(existing, {
+        assetId: response.assetId,
+        fileName: file.name,
+        name: targetModelName.trim() || existing.name,
+        thumbnailDataUrl,
+      });
+      await upsertLocalAsset(updated);
+    } else {
+      await upsertLocalAsset(
+        normalizeAssetVersions({
+          id: crypto.randomUUID(),
+          name: targetModelName.trim() || file.name,
+          type: "Model",
+          assetId: response.assetId,
+          assetUri: `rbxassetid://${response.assetId}`,
+          fileName: file.name,
+          folderPath: ROOT_FOLDER,
+          tags: ["updated-package"],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          versions: [],
+        }),
+      );
+    }
     await refreshLibrary();
     setTargetModelName("");
     setModelUpdateStatus(`Model package updated for asset ${response.assetId}.`);
     if (modelFileRef.current) {
       modelFileRef.current.value = "";
     }
+  }
+
+  function handleSort(column: LibrarySortColumn) {
+    setSort((current) => toggleLibrarySort(current, column));
   }
 
   const selectedCount = selectedAssetIds.size;
@@ -628,114 +831,104 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
     <section className="panel">
       <SectionHeader
         title="Asset library"
-        description="Folders, tags, search, drag-to-move, portable export, and Studio loaders for packages and sounds — stored in IndexedDB on your machine."
+        description="Folders, tags, version history, search, drag-to-move, portable export, and Studio loaders — stored in IndexedDB on your machine."
         meta={`${assets.length} assets · ${folders.length} folders`}
       />
 
-      <div className="grid gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="sm:col-span-2">
-          <LibraryGooeySearch
-            value={search}
-            onValueChange={setSearch}
-            collapsedWidth={220}
-            expandedWidth={360}
-            expandedOffset={50}
-          />
-        </div>
-        <input
-          className="field-input"
-          placeholder="Filter by tag"
-          value={tagFilter}
-          onChange={(event) => setTagFilter(event.target.value)}
-          aria-label="Filter by tag"
+      <LibraryFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        typeFilter={typeFilter}
+        onTypeFilterChange={setTypeFilter}
+        onReset={clearFilters}
+        selectedCount={selectedCount}
+        selectionActions={
+          <>
+            <button type="button" className="library-compact-btn btn-secondary" onClick={deleteSelected}>
+              Delete
+            </button>
+            <InsertServiceScriptTrigger
+              assets={insertScriptAssets}
+              className="library-compact-btn btn-primary"
+              label={`Studio loader (${selectedCount})`}
+            />
+            <button
+              type="button"
+              className="library-compact-btn btn-secondary"
+              onClick={() => exportSelection("json")}
+            >
+              Export JSON
+            </button>
+            <button
+              type="button"
+              className="library-compact-btn btn-secondary"
+              onClick={() => exportSelection("csv")}
+            >
+              Export CSV
+            </button>
+            <button
+              type="button"
+              className="library-compact-btn btn-secondary"
+              onClick={() => exportCompactSelection()}
+            >
+              Compact JSON
+            </button>
+          </>
+        }
+      />
+
+      <div className="mt-1.5">
+        <LibraryTagsToolbar
+          allTags={libraryTags}
+          tagFilter={tagFilter}
+          onTagFilterChange={setTagFilter}
+          selectedCount={selectedCount}
+          onApplyTags={(tags) => void applyBulkTags(tags)}
+          onRemoveTagFromSelection={(tag) => void removeBulkTagFromSelection(tag)}
         />
-        <div className="flex gap-2">
-          <select
-            className="field-input flex-1"
-            value={typeFilter}
-            onChange={(event) => setTypeFilter(event.target.value as "all" | AssetType)}
-            aria-label="Filter by type"
-          >
-            <option value="all">All types</option>
-            <option value="Image">Image</option>
-            <option value="Audio">Audio</option>
-            <option value="Model">Model</option>
-            <option value="Mesh">Mesh</option>
-          </select>
-          <select
-            className="field-input flex-1"
-            value={sortKey}
-            onChange={(event) => setSortKey(event.target.value as SortKey)}
-            aria-label="Sort order"
-          >
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="name-asc">Name A–Z</option>
-            <option value="name-desc">Name Z–A</option>
-            <option value="type">Type</option>
-          </select>
-        </div>
-        <button type="button" className="btn-ghost justify-self-start text-[13px]" onClick={clearFilters}>
-          Reset filters
-        </button>
       </div>
 
-      <div className="mt-3 grid gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-        <input
-          className="field-input sm:col-span-2 lg:col-span-1"
-          placeholder="Bulk tags (comma separated)"
-          value={bulkTagInput}
-          onChange={(event) => setBulkTagInput(event.target.value)}
-        />
-        <button type="button" className="btn-secondary" onClick={applyBulkTags}>
-          Tag selected ({selectedCount})
-        </button>
-        <button type="button" className="btn-secondary" onClick={deleteSelected}>
-          Delete selected ({selectedCount})
-        </button>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3">
-        <InsertServiceScriptTrigger
-          assets={insertScriptAssets}
-          label={
-            selectedCount > 0
-              ? `Studio loader (${selectedCount})`
-              : "Studio loader"
-          }
-        />
-        <span className="hidden h-5 w-px bg-[var(--border-subtle)] sm:block" aria-hidden />
-        <button type="button" className="btn-secondary" onClick={() => exportSelection("json")}>
-          Export selected JSON
-        </button>
-        <button type="button" className="btn-secondary" onClick={() => exportSelection("csv")}>
-          Export selected CSV
-        </button>
+      <LibraryActionsBar>
+        {selectedCount === 0 ? (
+          <>
+            <InsertServiceScriptTrigger
+              assets={insertScriptAssets}
+              className="library-compact-btn btn-primary"
+              label="Studio loader"
+            />
+            <span className="library-actions-divider" aria-hidden />
+          </>
+        ) : null}
         <button
           type="button"
-          className="btn-secondary"
+          className="library-compact-btn btn-secondary"
           onClick={() => exportFolderSelection("json")}
         >
-          Export folder JSON
+          Folder JSON
         </button>
         <button
           type="button"
-          className="btn-secondary"
+          className="library-compact-btn btn-secondary"
           onClick={() => exportFolderSelection("csv")}
         >
-          Export folder CSV
+          Folder CSV
         </button>
         <button
           type="button"
-          className="btn-secondary"
+          className="library-compact-btn btn-secondary"
+          onClick={() => setSyncOpen(true)}
+        >
+          Sync
+        </button>
+        <button
+          type="button"
+          className="library-compact-btn btn-secondary"
           onClick={() => importRef.current?.click()}
         >
-          Import JSON/CSV
+          Import
         </button>
-      </div>
-      {managerStatus ? (
-        <p className="alert alert-info mt-3 text-[13px]" role="status">{managerStatus}</p>
-      ) : null}
+      </LibraryActionsBar>
+      <LibraryStatusSlot message={managerStatus} />
 
       <input
         ref={importRef}
@@ -750,154 +943,90 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
           event.target.value = "";
         }}
       />
+      <input
+        ref={versionFileRef}
+        type="file"
+        accept=".png,.jpg,.jpeg,.webp,.mp3,.ogg,.wav,.flac,.fbx,.gltf,.glb,.rbxm,.rbxmx,.mesh"
+        className="hidden"
+        onChange={(event) => {
+          handleVersionFileSelected(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
-        <LibraryFolderPanel
-          folderTree={folderTree}
-          folderPaths={folderPaths}
-          totalAssetCount={assets.length}
-          nestedAssetCounts={nestedFolderAssetCounts}
-          selectedFolder={selectedFolder}
-          folderFilter={folderFilter}
-          expandedPaths={expandedFolderPaths}
-          selectedAssetCount={selectedCount}
-          onSelectAllAssets={selectAllAssets}
-          onSelectFolder={selectFolder}
-          onToggleExpand={toggleFolderExpansion}
-          onCreateFolder={createFolder}
-          onRenameFolder={renameFolder}
-          onReparentFolder={reparentFolder}
-          onDeleteFolder={deleteFolder}
-          onMoveAssetsToFolder={moveAssetsToFolder}
-          onDropAssets={(folderPath, assetIds) => moveAssetsToFolder(folderPath, assetIds)}
+      <LibrarySyncModal
+        open={syncOpen}
+        localAssets={assets}
+        onClose={() => setSyncOpen(false)}
+        onMerge={mergeSyncedLibrary}
+      />
+
+      <LibraryCollectionsLayout
+        loading={libraryLoading}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        sidebar={
+          <LibraryFolderPanel
+            folderTree={folderTree}
+            folderPaths={folderPaths}
+            totalAssetCount={assets.length}
+            nestedAssetCounts={nestedFolderAssetCounts}
+            selectedFolder={selectedFolder}
+            folderFilter={folderFilter}
+            expandedPaths={expandedFolderPaths}
+            selectedAssetCount={selectedCount}
+            onSelectAllAssets={selectAllAssets}
+            onSelectFolder={selectFolder}
+            onToggleExpand={toggleFolderExpansion}
+            onCreateFolder={createFolder}
+            onRenameFolder={renameFolder}
+            onReparentFolder={reparentFolder}
+            onDeleteFolder={deleteFolder}
+            onMoveAssetsToFolder={moveAssetsToFolder}
+            onDropAssets={(folderPath, assetIds) => moveAssetsToFolder(folderPath, assetIds)}
+            collapsible
+            onCollapse={() => setSidebarCollapsed(true)}
+          />
+        }
+      >
+        <LibraryAssetTable
+          assets={filteredAssets}
+          sort={sort}
+          onSort={handleSort}
+          selectedAssetIds={selectedAssetIds}
+          onSelectionChange={setSelectedAssetIds}
+          viewVersionByAssetId={viewVersionByAssetId}
+          onViewVersionChange={(libraryAssetId, rbxAssetId) => {
+            setViewVersionByAssetId((current) => ({
+              ...current,
+              [libraryAssetId]: rbxAssetId,
+            }));
+          }}
+          onTagClick={setTagFilter}
+          onAddTag={(assetId, tag) => void addTagToAsset(assetId, tag)}
+          onRemoveTag={(assetId, tag) => void removeTagFromAsset(assetId, tag)}
+          onQueueNewVersion={onQueueVersionUpload ? queueNewVersion : undefined}
+          getTypeGlyph={getAssetTypeGlyph}
+          emptyState={{
+            icon: <IconFolder size={18} />,
+            title: assets.length === 0 ? "Your library is empty" : "No assets found",
+            description:
+              assets.length === 0
+                ? "Completed uploads land here automatically. Drag files to Upload, or sync a team manifest from Git."
+                : "Try adjusting your search or filters.",
+            action:
+              assets.length === 0 ? (
+                <button
+                  type="button"
+                  className="btn-secondary text-xs"
+                  onClick={() => setSyncOpen(true)}
+                >
+                  Sync from repo
+                </button>
+              ) : undefined,
+          }}
         />
-
-        <div className="overflow-x-auto rounded-lg border border-[var(--border-subtle)]">
-          {filteredAssets.length === 0 ? (
-            <EmptyState
-              icon={<IconFolder size={18} />}
-              title="No assets found"
-              description={
-                assets.length === 0
-                  ? "Completed uploads are saved here automatically. Upload assets to get started."
-                  : "Try adjusting your search or filters."
-              }
-            />
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th className="w-10">
-                    <input
-                      type="checkbox"
-                      aria-label="Select all visible assets"
-                      checked={
-                        filteredAssets.length > 0 &&
-                        filteredAssets.every((asset) => selectedAssetIds.has(asset.id))
-                      }
-                      onChange={(event) => {
-                        if (event.target.checked) {
-                          setSelectedAssetIds(new Set(filteredAssets.map((asset) => asset.id)));
-                        } else {
-                          setSelectedAssetIds(new Set());
-                        }
-                      }}
-                    />
-                  </th>
-                  <th className="w-12" />
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>Asset ID</th>
-                  <th className="hidden md:table-cell">Collection</th>
-                  <th className="hidden lg:table-cell">Tags</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAssets.map((asset) => (
-                  <tr
-                    key={asset.id}
-                    draggable
-                    className="cursor-grab active:cursor-grabbing"
-                    onDragStart={(event) => {
-                      const ids = selectedAssetIds.has(asset.id)
-                        ? Array.from(selectedAssetIds)
-                        : [asset.id];
-                      event.dataTransfer.setData(
-                        "application/x-rblxuploads-assets",
-                        JSON.stringify(ids),
-                      );
-                      event.dataTransfer.effectAllowed = "move";
-                    }}
-                  >
-                    <td>
-                      <input
-                        type="checkbox"
-                        aria-label={`Select ${asset.name}`}
-                        checked={selectedAssetIds.has(asset.id)}
-                        onChange={(event) => {
-                          const next = new Set(selectedAssetIds);
-                          if (event.target.checked) {
-                            next.add(asset.id);
-                          } else {
-                            next.delete(asset.id);
-                          }
-                          setSelectedAssetIds(next);
-                        }}
-                      />
-                    </td>
-                    <td>
-                      {asset.thumbnailDataUrl ? (
-                        <img
-                          src={asset.thumbnailDataUrl}
-                          alt=""
-                          className="h-8 w-8 rounded border border-[var(--border-subtle)] object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-8 w-8 items-center justify-center rounded border border-[var(--border-subtle)] bg-[var(--surface-inset)] text-[10px] font-medium text-[var(--text-muted)]">
-                          {getAssetTypeGlyph(asset.type)}
-                        </div>
-                      )}
-                    </td>
-                    <td className="font-medium text-[var(--text-primary)]">{asset.name}</td>
-                    <td className="text-[var(--text-muted)]">{asset.type}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn-ghost max-w-[10rem] truncate p-1 font-mono text-[11px] sm:max-w-none"
-                        onClick={() => navigator.clipboard.writeText(asset.assetUri)}
-                        title="Click to copy"
-                      >
-                        <IconCopy size={12} className="mr-1 inline shrink-0" />
-                        {asset.assetId}
-                      </button>
-                    </td>
-                    <td className="hidden font-mono text-[11px] text-[var(--text-muted)] md:table-cell">
-                      {asset.folderPath}
-                    </td>
-                    <td className="hidden text-[var(--text-muted)] lg:table-cell">
-                      {asset.tags.length > 0 ? (
-                        <span className="flex flex-wrap gap-1">
-                          {asset.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="rounded px-1.5 py-0.5 font-mono text-[10px]"
-                              style={{ background: "var(--surface-hover)" }}
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+      </LibraryCollectionsLayout>
 
       <div className="mt-5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-4">
         <h3 className="font-display text-[15px] font-medium text-[var(--text-primary)]">
@@ -932,34 +1061,6 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
       </div>
     </section>
   );
-}
-
-function parseJsonImport(text: string): {
-  assets: Partial<LocalAssetRecord>[];
-  folders: string[];
-} {
-  const parsed = JSON.parse(text) as
-    | LocalAssetExportPayload
-    | Array<Partial<LocalAssetRecord>>;
-  if (Array.isArray(parsed)) {
-    return {
-      assets: parsed,
-      folders: [],
-    };
-  }
-  return {
-    assets: Array.isArray(parsed.assets) ? parsed.assets : [],
-    folders: Array.isArray(parsed.folders)
-      ? parsed.folders.map((folder) => normalizeFolderPath(String(folder)))
-      : [],
-  };
-}
-
-function normalizeImportedType(type: string | undefined): AssetType {
-  if (type === "Audio" || type === "Model" || type === "Image" || type === "Mesh") {
-    return type;
-  }
-  return "Image";
 }
 
 function parseCsvImport(text: string): Partial<LocalAssetRecord>[] {
@@ -1032,20 +1133,6 @@ function splitCsvLine(line: string): string[] {
   return result;
 }
 
-function getAssetTypeGlyph(type: AssetType): string {
-  switch (type) {
-    case "Audio":
-      return "A";
-    case "Model":
-      return "M";
-    case "Mesh":
-      return "X";
-    case "Image":
-    default:
-      return "I";
-  }
-}
-
 function getFoldersFromAssets(records: LocalAssetRecord[]): string[] {
   const unique = new Set<string>([ROOT_FOLDER]);
   for (const asset of records) {
@@ -1062,54 +1149,4 @@ function getFolderSubtree(rootFolder: string, allFolders: string[]): string[] {
     (folder) => folder === root || folder.startsWith(`${root}/`),
   );
   return Array.from(new Set(scoped)).sort((a, b) => a.localeCompare(b));
-}
-
-async function createImageThumbnailDataUrl(file: File): Promise<string | undefined> {
-  if (!file.type.startsWith("image/")) {
-    return undefined;
-  }
-
-  try {
-    const dataUrl = await readFileAsDataUrl(file);
-    const image = await loadImage(dataUrl);
-    const longestSide = Math.max(image.naturalWidth, image.naturalHeight);
-    if (!Number.isFinite(longestSide) || longestSide <= 0) {
-      return undefined;
-    }
-
-    const maxDimension = 160;
-    const scale = Math.min(1, maxDimension / longestSide);
-    const width = Math.max(1, Math.round(image.naturalWidth * scale));
-    const height = Math.max(1, Math.round(image.naturalHeight * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return undefined;
-    }
-
-    context.drawImage(image, 0, 0, width, height);
-    return canvas.toDataURL("image/webp", 0.82);
-  } catch {
-    return undefined;
-  }
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.onerror = () => reject(reader.error ?? new Error("Failed reading file."));
-    reader.readAsDataURL(file);
-  });
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Failed loading image."));
-    image.src = src;
-  });
 }

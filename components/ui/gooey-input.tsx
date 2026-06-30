@@ -85,6 +85,8 @@ export interface GooeyInputProps {
   expandedWidth?: number;
   expandedOffset?: number;
   gooeyBlur?: number;
+  /** When true, expansion is absolutely positioned so sibling layout does not shift. */
+  containLayout?: boolean;
   value?: string;
   defaultValue?: string;
   onValueChange?: (value: string) => void;
@@ -100,6 +102,7 @@ export function GooeyInput({
   expandedWidth = 200,
   expandedOffset = 50,
   gooeyBlur = 5,
+  containLayout = false,
   value: valueProp,
   defaultValue = "",
   onValueChange,
@@ -148,11 +151,17 @@ export function GooeyInput({
   }, [isExpanded, setSearchText]);
 
   const buttonVariants = useMemo(
-    () => ({
-      collapsed: { width: collapsedWidth, marginLeft: 0 },
-      expanded: { width: expandedWidth, marginLeft: expandedOffset },
-    }),
-    [collapsedWidth, expandedWidth, expandedOffset],
+    () =>
+      containLayout
+        ? {
+            collapsed: { width: "100%", marginLeft: 0 },
+            expanded: { width: "100%", marginLeft: 0 },
+          }
+        : {
+            collapsed: { width: collapsedWidth, marginLeft: 0 },
+            expanded: { width: expandedWidth, marginLeft: expandedOffset },
+          },
+    [collapsedWidth, containLayout, expandedOffset, expandedWidth],
   );
 
   const handleExpand = useCallback(() => {
@@ -186,12 +195,17 @@ export function GooeyInput({
       <div
         className={cn(
           "relative flex h-10 items-center justify-center",
+          containLayout && "w-full overflow-hidden",
           classNames?.filterWrap,
         )}
         style={{ filter: `url(#${filterId})` }}
       >
         <motion.div
-          className={cn("flex h-10 items-center justify-center", classNames?.buttonRow)}
+          className={cn(
+            "flex h-10 items-center justify-center",
+            containLayout && "absolute top-0 left-0 z-[1] max-w-full",
+            classNames?.buttonRow,
+          )}
           variants={buttonVariants}
           initial="collapsed"
           animate={isExpanded ? "expanded" : "collapsed"}

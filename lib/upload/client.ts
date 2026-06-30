@@ -1,4 +1,5 @@
 import { resolveUploadCredentials } from "@/lib/config/credentials";
+import { translateUploadError } from "@/lib/roblox/error-messages";
 import type { UploadApiResponse, UploadConfig, UploadQueueItem } from "@/lib/types";
 
 interface UploadClientOptions {
@@ -32,6 +33,9 @@ export async function uploadAsset({
 
   const response = await fetch("/api/upload", {
     method: "POST",
+    headers: {
+      "X-Upload-Attempt": String(item.attempt || 1),
+    },
     body: formData,
   });
 
@@ -40,7 +44,7 @@ export async function uploadAsset({
   if (!response.ok || !payload.ok) {
     return {
       ok: false,
-      error: payload.error ?? "Upload failed",
+      error: translateUploadError(payload.error ?? "Upload failed"),
     };
   }
 
@@ -86,7 +90,7 @@ export async function updateModelPackage({
   if (!response.ok || !payload.ok) {
     return {
       ok: false,
-      error: payload.error ?? "Model package update failed",
+      error: translateUploadError(payload.error ?? "Model package update failed"),
     };
   }
 

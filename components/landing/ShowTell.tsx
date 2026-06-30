@@ -8,17 +8,21 @@ export function ShowTell() {
           <div className="max-w-lg">
             <p className="label mb-3">Show, don&apos;t tell</p>
             <h2 className="font-display text-2xl font-medium tracking-tight text-[var(--text-primary)] sm:text-3xl">
-              The same library you&apos;ll use in the workspace.
+              The same library UI as the workspace.
             </h2>
             <p className="mt-3 text-[var(--text-secondary)]">
-              Search, filter, create folders, rename and reparent collections, select assets, and
-              drag them onto folders — identical behavior to the Asset Library panel.
+              Search, filter, create folders, browse version history, select assets, and drag them
+              onto collections — the same shared components as the workspace library.
             </p>
           </div>
 
           <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-5">
             <p className="label mb-2">Try it</p>
             <ul className="space-y-2 text-sm text-[var(--text-muted)]">
+              <li>
+                <span className="font-mono text-[var(--text-secondary)]">Char_HeroMesh</span> — open
+                Versions to preview prior rbxassetids
+              </li>
               <li>
                 <span className="font-mono text-[var(--text-secondary)]">+ New folder</span> — create
                 nested collections
@@ -27,7 +31,7 @@ export function ShowTell() {
                 Drag a row onto a folder — move assets without opening menus
               </li>
               <li>
-                Select a folder — rename, reparent, or delete from the inspector
+                Collapse collections — more room for the asset table
               </li>
               <li>
                 <span className="font-mono text-[var(--text-secondary)]">ui</span> or{" "}

@@ -7,6 +7,7 @@ import {
   createProfile,
   suggestProfileLabel,
 } from "@/lib/config/credentials";
+import { DEFAULT_UPLOAD_POLICY, DEFAULT_WEBHOOK_CONFIG } from "@/lib/policy/defaults";
 import type { CreatorType, UploadConfig } from "@/lib/types";
 
 interface LegacyUploadConfig {
@@ -45,6 +46,14 @@ function normalizeConfig(saved: Partial<UploadConfig>): UploadConfig {
       typeof saved.maxRetries === "number"
         ? saved.maxRetries
         : DEFAULT_UPLOAD_CONFIG.maxRetries,
+    policy: {
+      ...DEFAULT_UPLOAD_POLICY,
+      ...(saved.policy ?? {}),
+    },
+    webhook: {
+      ...DEFAULT_WEBHOOK_CONFIG,
+      ...(saved.webhook ?? {}),
+    },
   };
 }
 
@@ -70,6 +79,7 @@ function migrateLegacyConfig(legacy: LegacyUploadConfig): UploadConfig {
   });
 
   return {
+    ...DEFAULT_UPLOAD_CONFIG,
     profiles: [profile],
     activeProfileId: profile.id,
     concurrency: legacy.concurrency ?? DEFAULT_UPLOAD_CONFIG.concurrency,

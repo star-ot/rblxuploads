@@ -41,6 +41,8 @@ interface LibraryFolderPanelProps {
   onDeleteFolder: (folderPath: string) => Promise<void>;
   onMoveAssetsToFolder: (folderPath: string) => Promise<void>;
   onDropAssets: (folderPath: string, assetIds: string[]) => Promise<void>;
+  collapsible?: boolean;
+  onCollapse?: () => void;
 }
 
 export function LibraryFolderPanel({
@@ -61,6 +63,8 @@ export function LibraryFolderPanel({
   onDeleteFolder,
   onMoveAssetsToFolder,
   onDropAssets,
+  collapsible = false,
+  onCollapse,
 }: LibraryFolderPanelProps) {
   const [creatingUnder, setCreatingUnder] = useState<string | null>(null);
   const [createName, setCreateName] = useState("");
@@ -186,7 +190,20 @@ export function LibraryFolderPanel({
   return (
     <aside className="flex min-h-[28rem] flex-col rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)]">
       <div className="flex items-center justify-between gap-2 border-b border-[var(--border-subtle)] px-2 py-2">
-        <p className="label px-1">Collections</p>
+        <div className="flex min-w-0 items-center gap-1">
+          {collapsible ? (
+            <button
+              type="button"
+              className="library-collections-collapse"
+              onClick={onCollapse}
+              aria-label="Collapse collections"
+              title="Collapse collections"
+            >
+              <IconChevronRight size={14} className="rotate-180" aria-hidden />
+            </button>
+          ) : null}
+          <p className="label truncate px-1">Collections</p>
+        </div>
         <button
           type="button"
           className="btn-ghost px-2 py-1 text-[12px]"

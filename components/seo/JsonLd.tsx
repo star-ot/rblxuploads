@@ -1,4 +1,4 @@
-import { homePageJsonLd, workspacePageJsonLd } from "@/lib/seo/json-ld";
+import { homePageJsonLd, teamsPageJsonLd, workspacePageJsonLd } from "@/lib/seo/json-ld";
 
 interface JsonLdProps {
   data: Record<string, unknown>;
@@ -19,4 +19,8 @@ export function HomePageJsonLd() {
 
 export function WorkspacePageJsonLd() {
   return <JsonLd data={workspacePageJsonLd()} />;
+}
+
+export function TeamsPageJsonLd() {
+  return <JsonLd data={teamsPageJsonLd()} />;
 }

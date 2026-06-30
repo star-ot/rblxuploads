@@ -1,105 +1,92 @@
-# RblxUploads
+# Studio Vault (rblxuploads)
 
 **Made by [StarVSK](https://starvsk.dev)**
 
-Local batch uploader for Roblox Open Cloud **Image**, **Audio**, **Model**, and **Mesh** assets. Queue files, name them, upload with controlled concurrency, and manage resulting `rbxassetid://` values in a local asset library.
+Local-first Roblox asset workspace — bulk Open Cloud uploads, IndexedDB library, model package PATCH, InsertService scripts, and multi-profile credentials. MIT licensed. No telemetry.
 
-Runs entirely on your machine. The only outbound network traffic is to `apis.roblox.com` when you start a batch.
+The only outbound network traffic is to `apis.roblox.com` when you upload.
 
-## Features
+- **Product site:** [/teams](https://uploader.starvsk.dev/teams) — self-hosting & security for studios
+- **Workspace:** [/workspace](https://uploader.starvsk.dev/workspace)
 
-- Drag-and-drop or file-picker batch uploads (PNG, JPG, JPEG, WEBP, MP3, OGG, WAV, FLAC, FBX, GLTF, GLB, RBXM, RBXMX, MESH)
-- Automatic filename → Roblox display name formatting (editable per file)
-- Concurrency-limited queue with retries
-- Per-item status: Queued → Sending → Roblox → Done / Error
-- Copy individual IDs, copy all, or export CSV/JSON results
-- IndexedDB-backed local asset library with folders, tags, search/filter/sort, and bulk move/tag operations
-- Portable local library export/import (JSON/CSV) for sharing metadata with others
-- Model package update workflow (`PATCH /assets/v1/assets/{assetId}`) with FBX validation
-- Credentials stored in browser `localStorage` only
-
-## Quick start
+## Quick start (local dev)
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), create an Open Cloud API key with the **asset** permission scope, paste it in **Credentials** along with your creator ID, add supported assets, and hit **Start batch**.
+Open [http://localhost:3000/workspace](http://localhost:3000/workspace), add Open Cloud credentials, queue files, and hit **Start upload**.
 
-No `.env` file is required.
+No `.env` required for solo dev use.
 
-## Configuration
+## Docker (self-host)
 
-All settings live in the in-app **Credentials** panel and persist in `localStorage`:
+```bash
+docker build -t studio-vault .
+docker run -p 3000:3000 -e NEXT_PUBLIC_SITE_URL=http://localhost:3000 studio-vault
+```
 
-| Field | Description |
+Or `docker compose up`. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+Health check: `GET /api/health` → `{ "ok": true, "version": "…", "metrics": { … } }`
+
+Metrics (self-hosted): `GET /api/metrics` — Prometheus text or `?format=json`
+
+## CLI (CI/CD)
+
+```bash
+npm run cli -- upload ./assets/ci --concurrency 5 --format json
+npm run cli -- validate ./assets/ci --pattern "^UI_[A-Za-z0-9_]+$"
+```
+
+Credentials via env: `ROBLOX_OPEN_CLOUD_KEY`, `ROBLOX_CREATOR_ID`, `ROBLOX_CREATOR_TYPE` — or `studio-vault.json` (see `studio-vault.json.example`).
+
+Full guide: [docs/CI.md](docs/CI.md) · GitHub Actions: [.github/workflows/studio-vault-upload.yml](.github/workflows/studio-vault-upload.yml)
+
+## Features
+
+- Batch uploads: Image, Audio, Model, Mesh (PNG, JPG, WEBP, MP3, OGG, WAV, FLAC, FBX, GLTF, GLB, RBXM, RBXMX, MESH)
+- Local library with folders, tags, search, export/import, **Git sync with merge**
+- **Asset versioning** — upload a new version from the library, browse prior rbxassetids with previews via the Versions dropdown, compact v3 export for Git
+- **Upload policy** — enforce naming patterns and image dimensions in the workspace and CI (`studio-vault validate`)
+- Model package in-place PATCH (FBX)
+- InsertService Luau script generator
+- Multi-profile credential switching (localStorage only)
+- **Observability** — `/api/metrics`, live counters in Settings
+- **Webhooks** — Slack/Discord batch-complete notifications (optional)
+- Optional audit logging for self-hosted deploys
+- `studio-vault` CLI for pipelines
+
+## Documentation
+
+| Doc | Purpose |
 | --- | --- |
-| Open Cloud API key | From [create.roblox.com/dashboard/credentials](https://create.roblox.com/dashboard/credentials) — must include the **asset** permission scope |
-| Creator ID | Numeric user or group ID that owns the assets |
-| Creator type | `user` or `group` |
-| Parallel uploads | 1–10 concurrent requests |
-| Retry attempts | 0–5 retries per failed file |
-
-When creating your API key on the Creator Dashboard, enable the **asset** scope. This app uploads Image and Audio assets via the Open Cloud Assets API; keys without that permission will return authorization errors and uploads will fail.
+| [docs/SECURITY.md](docs/SECURITY.md) | Threat model, data flows |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Docker, env vars, reverse proxy |
+| [docs/TEAM-WORKFLOWS.md](docs/TEAM-WORKFLOWS.md) | Git library sync, profiles |
+| [docs/AUDIT-LOGGING.md](docs/AUDIT-LOGGING.md) | Structured upload logs |
+| [docs/CI.md](docs/CI.md) | GitHub Actions example |
 
 ## Security model
 
-This app is designed for local, open-source use:
-
-- **No server-side credential storage** — no `.env` fallbacks, no database, no Vercel Blob
-- **No telemetry** — no analytics, no external fonts, no CDN dependencies
-- **API keys stay in your browser** until you upload; they are sent per-request to your local Next.js server, which proxies to Roblox (required because Roblox blocks direct browser CORS calls)
-- **Never commit real API keys** — `.env*` is gitignored; rotate any key that was ever shared
-
-## Roblox API flow
-
-1. Browser sends file + metadata to `POST /api/upload` (local)
-2. Server forwards multipart request to `POST https://apis.roblox.com/assets/v1/assets`
-3. Server polls `GET …/operations/{operationId}` until complete
-4. `assetId` returns to the browser; queue UI updates live
-
-Assets are created with `assetType: "Image"`, `"Audio"`, `"Model"`, or `"Mesh"` based on file type.
-Model packages can be updated via a local UI workflow that proxies to `PATCH /assets/v1/assets/{assetId}`.
-
-## Project structure
-
-```text
-app/
-  api/upload/route.ts       # local proxy — sole external network caller
-  page.tsx                  # queue orchestration
-  globals.css               # StarVSK theme (system fonts only)
-components/
-  layout/                   # header + footer
-  SettingsPanel.tsx
-  Uploader.tsx
-  UploadQueue.tsx
-  AssetCard.tsx
-  ResultsTable.tsx
-  AssetLibraryManager.tsx   # IndexedDB-backed local library manager UI
-hooks/
-  usePersistedConfig.ts     # localStorage sync
-lib/
-  config/                   # constants + storage helpers
-  roblox/client.ts          # Open Cloud create + poll (server-only)
-  local-assets-db.ts        # IndexedDB persistence helpers
-  upload/                   # browser client + concurrency queue
-  file-parser.ts
-  name-formatter.ts
-  types.ts
-```
+- No server-side credential storage by default
+- No telemetry or third-party CDNs
+- API keys in browser localStorage; per-request proxy to Roblox only
+- Optional `RBLXUPLOADS_AUDIT_LOG=1` — never logs keys or file bytes
 
 ## Scripts
 
-- `npm run dev` — local dev server
-- `npm run build` — production build
-- `npm run start` — serve production build
-- `npm run lint` — ESLint
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Dev server |
+| `npm run build` | Production build |
+| `npm run start` | Serve production build |
+| `npm run lint` | ESLint |
+| `npm test` | Unit tests (policy, metrics, versioning, library export, CLI validate) |
+| `npm run cli` | Studio Vault CLI |
+| `npm run validate:assets` | Policy-check a folder (`--pattern`, `--max-name-length`) |
 
 ## License
 
 [MIT](LICENSE) — Copyright (c) 2026 StarVSK
-
-## Contributing
-
-Issues and PRs welcome. Include reproduction steps and expected vs actual behavior for bugs.

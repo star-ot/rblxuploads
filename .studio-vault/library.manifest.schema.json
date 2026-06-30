@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://studio-vault.dev/schemas/library.manifest.json",
+  "title": "Studio Vault Library Manifest",
+  "description": "Canonical team library metadata stored in Git. No API keys.",
+  "type": "object",
+  "required": ["schemaVersion", "exportedAt", "folders", "assets"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "Manifest format version"
+    },
+    "exportedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "folders": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Folder paths relative to library root"
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "assetId", "assetUri"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "enum": ["Image", "Audio", "Model", "Mesh"] },
+          "assetId": { "type": "string" },
+          "assetUri": { "type": "string" },
+          "fileName": { "type": "string" },
+          "folderPath": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "thumbnailDataUrl": { "type": "string" },
+          "createdAt": { "type": "number" },
+          "updatedAt": { "type": "number" }
+        }
+      }
+    }
+  }
+}

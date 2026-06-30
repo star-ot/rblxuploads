@@ -8,6 +8,7 @@ import {
   IconTag,
   IconTerminal,
   IconUpload,
+  IconLibrary,
 } from "@/components/ui/Icon";
 import {
   LandingCopyDemo,
@@ -39,6 +40,12 @@ const FEATURES = [
     title: "Bulk upload with confidence",
     description:
       "Queue images, audio, meshes, and model packages (FBX, RBXM, GLTF). Watch each file move from queued to done.",
+  },
+  {
+    icon: IconLibrary,
+    title: "Version history on re-upload",
+    description:
+      "Upload a new file for an existing library asset and prior rbxassetids stay in the chain. Preview older versions, copy legacy IDs, and export compact manifests with full history.",
   },
   {
     icon: IconTag,
@@ -131,7 +138,8 @@ export function Features() {
               Every asset in one place.
             </h2>
             <p className="mt-3 text-[var(--text-secondary)]">
-              Including model packages you can overwrite without new IDs.{" "}
+              Including version chains when you re-upload and model packages you can overwrite without
+              new IDs.{" "}
               <a
                 href="#model-packages"
                 className="text-[var(--accent-hover)] underline-offset-2 hover:underline"

@@ -1,0 +1,16 @@
+services:
+  studio-vault:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      # Public URL for SEO / OG (required for production deploys)
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      # Mirror audit flag for client UI (server uses RBLXUPLOADS_AUDIT_LOG)
+      NEXT_PUBLIC_RBLXUPLOADS_AUDIT_LOG: "0"
+      # Optional server features
+      RBLXUPLOADS_AUDIT_LOG: "0"
+      # RBLXUPLOADS_AUDIT_LOG_PATH: /var/log/studio-vault/audit.jsonl
+      RBLXUPLOADS_TRUST_PROXY: "1"
+      # RBLXUPLOADS_ALLOWED_ORIGINS: http://localhost:3000
+    restart: unless-stopped

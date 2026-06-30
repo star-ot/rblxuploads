@@ -56,6 +56,9 @@ function softwareApplicationSchema(origin: string) {
       "Portable JSON and CSV export",
       "Model package updates via Open Cloud",
       "InsertService Luau script generator for Studio workspace loading",
+      "Self-hosted Docker deployment",
+      "Optional structured audit logging",
+      "Git-backed team library sync",
     ],
     author: { "@id": `${origin}#organization` },
     publisher: { "@id": `${origin}#organization` },
@@ -190,6 +193,68 @@ export function workspacePageJsonLd() {
     breadcrumbSchema(`${origin}#breadcrumbs`, [
       { name: "Home", path: "/" },
       { name: "Workspace", path: "/workspace" },
+    ]),
+  ]);
+}
+
+export function teamsPageJsonLd() {
+  const origin = absoluteUrl("/teams");
+  const webPageId = `${origin}#webpage`;
+  const faqPageId = `${origin}#faq`;
+
+  return schemaGraph([
+    organizationSchema(absoluteUrl("/")),
+    softwareApplicationSchema(absoluteUrl("/")),
+    {
+      "@type": "WebPage",
+      "@id": webPageId,
+      url: origin,
+      name: `${siteConfig.name} — Teams & Self-Hosting`,
+      description:
+        "Self-hosted Roblox asset pipeline for game studios. Docker deployment, security architecture, optional audit logging, and Git-backed team workflows.",
+      isPartOf: { "@id": `${absoluteUrl("/")}#website` },
+      about: { "@id": `${absoluteUrl("/")}#software` },
+      primaryImageOfPage: {
+        "@type": "ImageObject",
+        url: absoluteUrl("/opengraph-image"),
+        width: 1200,
+        height: 630,
+      },
+      mainEntity: { "@id": faqPageId },
+    },
+    {
+      "@type": "FAQPage",
+      "@id": faqPageId,
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: "Where are Open Cloud API keys stored?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "In the browser localStorage on each developer machine — never on the Studio Vault server by default. During upload, keys travel per-request from browser to your self-hosted proxy to Roblox.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "What data leaves our network?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Only upload requests to Roblox Open Cloud. Library data, credential profiles at rest, and telemetry never leave your controlled environment unless explicitly exported.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Is Studio Vault multi-tenant SaaS?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "No. Each studio deploys their own instance. There are no shared accounts, billing tiers, or cloud-synced libraries.",
+          },
+        },
+      ],
+    },
+    breadcrumbSchema(`${origin}#breadcrumbs`, [
+      { name: "Home", path: "/" },
+      { name: "Teams", path: "/teams" },
     ]),
   ]);
 }

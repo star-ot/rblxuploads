@@ -13,9 +13,9 @@ export function Hero() {
               The asset browser Roblox developers always wanted.
             </h1>
             <p className="mt-5 max-w-md text-base leading-relaxed text-[var(--text-secondary)] sm:text-lg">
-              Find. Organize. Ship. Every rbxassetid in one place — bulk upload, model packages you
-              can overwrite in place, InsertService scripts for instant Studio loading, and credential
-              profiles for every group you ship to.
+              Find. Organize. Ship. Every rbxassetid in one place — bulk upload, version history when
+              you re-upload, model packages you can overwrite in place, InsertService scripts for
+              instant Studio loading, and credential profiles for every group you ship to.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -32,7 +32,7 @@ export function Hero() {
             </div>
 
             <p className="mt-6 font-mono text-xs text-[var(--text-faint)]">
-              Local-first · Multi-profile Open Cloud · Upload → Workspace scripts
+              Local-first · Version chains · Multi-profile Open Cloud · Upload → Workspace scripts
             </p>
           </div>
 

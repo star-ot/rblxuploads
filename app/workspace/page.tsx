@@ -7,6 +7,12 @@ import { SettingsPanel } from "@/components/SettingsPanel";
 import { Uploader } from "@/components/Uploader";
 import { UploadQueue } from "@/components/UploadQueue";
 import { ResultsTable } from "@/components/ResultsTable";
+import { useToast } from "@/components/ui/Toast";
+import {
+  KeyboardShortcutsModal,
+  useWorkspaceShortcuts,
+} from "@/components/workspace/KeyboardShortcutsModal";
+import { WorkspaceOnboarding } from "@/components/workspace/WorkspaceOnboarding";
 import { usePersistedConfig } from "@/hooks/usePersistedConfig";
 import {
   getAssetType,
@@ -16,8 +22,14 @@ import {
 import { formatRobloxAssetName } from "@/lib/name-formatter";
 import { runQueue } from "@/lib/upload/queue";
 import type { UploadQueueItem } from "@/lib/types";
-import { validateActiveProfile } from "@/lib/config/credentials";
+import { isProfileReady, validateActiveProfile } from "@/lib/config/credentials";
+import { listLocalAssets } from "@/lib/local-assets-db";
 import { uploadAsset } from "@/lib/upload/client";
+import {
+  partitionPolicyViolations,
+  validateFilePolicy,
+} from "@/lib/policy/validate";
+import { notifyBatchComplete } from "@/lib/webhook/client";
 
 type WorkspaceView = "upload" | "library" | "settings";
 
@@ -29,10 +41,17 @@ export default function WorkspacePage() {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [tick, setTick] = useState(0);
   const [activeView, setActiveView] = useState<WorkspaceView>("upload");
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [libraryAssetCount, setLibraryAssetCount] = useState(0);
   const itemsRef = useRef(items);
+  const { pushToast } = useToast();
 
   useEffect(() => {
     itemsRef.current = items;
+  }, [items]);
+
+  useEffect(() => {
+    void listLocalAssets().then((assets) => setLibraryAssetCount(assets.length));
   }, [items]);
 
   useEffect(() => {
@@ -54,6 +73,20 @@ export default function WorkspacePage() {
       itemsRef.current.forEach((item) => URL.revokeObjectURL(item.previewUrl));
     };
   }, []);
+
+  useWorkspaceShortcuts({
+    onUpload: () => setActiveView("upload"),
+    onLibrary: () => setActiveView("library"),
+    onSettings: () => setActiveView("settings"),
+    onHelp: () => setShortcutsOpen(true),
+    enabled: !shortcutsOpen,
+  });
+
+  const hasCredentials = useMemo(
+    () => config.profiles.some((profile) => isProfileReady(profile)),
+    [config.profiles],
+  );
+  const hasUpload = items.some((item) => item.status === "complete");
 
   const summary = useMemo(() => {
     const total = items.length;
@@ -92,27 +125,105 @@ export default function WorkspacePage() {
   }
 
   function addFiles(files: File[]) {
-    const created = files.map((file) => {
+    void enqueueFiles(files);
+  }
+
+  function queueVersionUpload(payload: {
+    libraryAssetId: string;
+    file: File;
+    assetName: string;
+  }) {
+    const fileIsSupported = isSupportedAssetFile(payload.file);
+    const item: UploadQueueItem = {
+      id: crypto.randomUUID(),
+      file: payload.file,
+      fileName: payload.file.name,
+      previewUrl: URL.createObjectURL(payload.file),
+      assetType: getAssetType(payload.file) ?? "Image",
+      assetName: payload.assetName,
+      status: fileIsSupported ? "waiting" : "failed",
+      progress: fileIsSupported ? 0 : 100,
+      attempt: 0,
+      error: fileIsSupported ? undefined : getUnsupportedReason(payload.file),
+      createdAt: Date.now(),
+      replaceLibraryAssetId: payload.libraryAssetId,
+    };
+
+    setItems((current) => [...current, item]);
+    setActiveView("upload");
+    pushToast(`Queued new version for "${payload.assetName}"`, "success");
+  }
+
+  async function enqueueFiles(files: File[]) {
+    const existingNames = itemsRef.current.map((item) => item.assetName);
+    const created: UploadQueueItem[] = [];
+    let policyBlocked = 0;
+    let policyWarned = 0;
+
+    for (const file of files) {
       const fileIsSupported = isSupportedAssetFile(file);
       const unsupportedReason = getUnsupportedReason(file);
       const assetType = getAssetType(file) ?? "Image";
+      const assetName = formatRobloxAssetName(file.name);
 
-      return {
+      let status: UploadQueueItem["status"] = fileIsSupported ? "waiting" : "failed";
+      let progress = fileIsSupported ? 0 : 100;
+      let error = fileIsSupported ? undefined : unsupportedReason;
+      let policyWarnings: string[] | undefined;
+
+      if (fileIsSupported && config.policy?.enabled) {
+        const violations = await validateFilePolicy(file, {
+          policy: config.policy,
+          queueNames: [...existingNames, ...created.map((item) => item.assetName)],
+        });
+        const { errors, warnings } = partitionPolicyViolations(violations);
+
+        if (warnings.length) {
+          policyWarnings = warnings.map((v) => v.message);
+          policyWarned += warnings.length;
+        }
+
+        if (errors.length && config.policy?.blockOnViolation) {
+          status = "failed";
+          progress = 100;
+          error = errors.map((v) => v.message).join(" ");
+          policyBlocked += 1;
+        }
+      }
+
+      created.push({
         id: crypto.randomUUID(),
         file,
         fileName: file.name,
         previewUrl: URL.createObjectURL(file),
         assetType,
-        assetName: formatRobloxAssetName(file.name),
-        status: fileIsSupported ? "waiting" : "failed",
-        progress: fileIsSupported ? 0 : 100,
+        assetName,
+        status,
+        progress,
         attempt: 0,
-        error: fileIsSupported ? undefined : unsupportedReason,
+        error,
+        policyWarnings,
         createdAt: Date.now(),
-      } satisfies UploadQueueItem;
-    });
+      });
+    }
 
     setItems((current) => [...current, ...created]);
+    if (created.length > 0) {
+      const added = created.length - policyBlocked;
+      if (policyBlocked > 0) {
+        pushToast(
+          `Added ${added} file${added === 1 ? "" : "s"} — ${policyBlocked} blocked by policy`,
+          "error",
+        );
+      } else if (policyWarned > 0) {
+        pushToast(
+          `Added ${created.length} file${created.length === 1 ? "" : "s"} with policy warnings`,
+          "info",
+        );
+      } else {
+        pushToast(`Added ${created.length} file${created.length === 1 ? "" : "s"} to queue`, "info");
+      }
+    }
   }
 
   function removeItem(id: string) {
@@ -166,6 +277,7 @@ export default function WorkspacePage() {
     const credentialError = validateActiveProfile(config);
     if (credentialError) {
       setStatusMessage(credentialError);
+      pushToast(credentialError, "error");
       setActiveView("settings");
       return;
     }
@@ -177,6 +289,34 @@ export default function WorkspacePage() {
     if (targetIds.length === 0) {
       setStatusMessage("Nothing waiting in the queue.");
       return;
+    }
+
+    if (config.policy?.enabled && config.policy.blockOnViolation) {
+      const waiting = itemsRef.current.filter((item) => item.status === "waiting");
+      let blocked = false;
+      for (const item of waiting) {
+        const violations = await validateFilePolicy(item.file, {
+          policy: config.policy,
+          queueNames: waiting
+            .filter((other) => other.id !== item.id)
+            .map((other) => other.assetName),
+        });
+        const { errors } = partitionPolicyViolations(violations);
+        if (errors.length) {
+          updateItem(item.id, (current) => ({
+            ...current,
+            status: "failed",
+            progress: 100,
+            error: errors.map((v) => v.message).join(" "),
+          }));
+          blocked = true;
+        }
+      }
+      if (blocked) {
+        setStatusMessage("Policy violations blocked one or more files. Fix or remove them.");
+        pushToast("Upload blocked — policy violations in queue", "error");
+        return;
+      }
     }
 
     setStatusMessage("");
@@ -248,73 +388,119 @@ export default function WorkspacePage() {
       });
     } finally {
       setIsRunning(false);
+      const snapshot = itemsRef.current;
+      const done = snapshot.filter((i) => i.status === "complete").length;
+      const failed = snapshot.filter((i) => i.status === "failed").length;
+      const retried = snapshot.reduce((sum, item) => sum + Math.max(0, item.attempt - 1), 0);
+
+      if (done > 0 || failed > 0) {
+        pushToast(
+          `Upload batch finished — ${done} succeeded${failed ? `, ${failed} failed` : ""}.`,
+          failed ? "info" : "success",
+        );
+
+        if (config.webhook?.enabled) {
+          const webhook = await notifyBatchComplete(config, {
+            total: snapshot.length,
+            succeeded: done,
+            failed,
+            retried,
+            items: snapshot,
+          });
+          if (!webhook.ok && webhook.error) {
+            pushToast(`Webhook: ${webhook.error}`, "error");
+          }
+        }
+      }
     }
   }
 
   return (
-    <WorkspaceShell
-      activeView={activeView}
-      onViewChange={setActiveView}
-      statusMessage={statusMessage}
-      queueCount={items.filter((i) => i.status === "waiting").length}
-      config={config}
-      onConfigChange={setConfig}
-      configSwitcherDisabled={isRunning}
-    >
-      {activeView === "settings" ? (
-        <SettingsPanel config={config} onChange={setConfig} disabled={isRunning} />
-      ) : null}
+    <>
+      <WorkspaceShell
+        activeView={activeView}
+        onViewChange={setActiveView}
+        statusMessage={statusMessage}
+        queueCount={items.filter((i) => i.status === "waiting").length}
+        config={config}
+        onConfigChange={setConfig}
+        configSwitcherDisabled={isRunning}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
+      >
+        <WorkspaceOnboarding
+          hasCredentials={hasCredentials}
+          hasUpload={hasUpload}
+          hasLibraryAssets={libraryAssetCount > 0}
+          onGoSettings={() => setActiveView("settings")}
+          onGoUpload={() => setActiveView("upload")}
+          onGoLibrary={() => setActiveView("library")}
+        />
 
-      {activeView === "upload" ? (
-        <>
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-            <Uploader disabled={isRunning} onFilesAdded={addFiles} />
-            <UploadQueue
-              items={items}
-              isRunning={isRunning}
-              progressPercent={summary.progressPercent}
-              completedCount={summary.doneCount}
-              etaLabel={summary.etaLabel}
-              onStart={startUpload}
-              onRetryFailed={retryFailed}
-              onClearFinished={clearFinished}
-              onNameChange={(id, name) => {
-                updateItem(id, (item) => ({
-                  ...item,
-                  assetName: formatRobloxAssetName(name),
-                }));
-              }}
-              onRemove={removeItem}
-            />
-          </div>
+        {activeView === "settings" ? (
+          <SettingsPanel config={config} onChange={setConfig} disabled={isRunning} />
+        ) : null}
 
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] px-4 py-3 font-mono text-xs">
-            <span className="text-[var(--text-muted)]">
-              Active{" "}
-              <span className="text-[var(--accent)]">{summary.activeCount}</span>
-            </span>
-            <span className="text-[var(--text-muted)]">
-              Done{" "}
-              <span className="text-[var(--success-text)]">{summary.completeCount}</span>
-            </span>
-            <span className="text-[var(--text-muted)]">
-              Failed{" "}
-              <span className="text-[var(--danger-text)]">{summary.failedCount}</span>
-            </span>
-            <span className="text-[var(--text-muted)]">
-              Total{" "}
-              <span className="text-[var(--text-secondary)]">{summary.total}</span>
-            </span>
-          </div>
+        {activeView === "upload" ? (
+          <>
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+              <Uploader disabled={isRunning} onFilesAdded={addFiles} />
+              <UploadQueue
+                items={items}
+                isRunning={isRunning}
+                progressPercent={summary.progressPercent}
+                completedCount={summary.doneCount}
+                etaLabel={summary.etaLabel}
+                onStart={startUpload}
+                onRetryFailed={retryFailed}
+                onClearFinished={clearFinished}
+                onNameChange={(id, name) => {
+                  updateItem(id, (item) => ({
+                    ...item,
+                    assetName: formatRobloxAssetName(name),
+                  }));
+                }}
+                onRemove={removeItem}
+              />
+            </div>
 
-          <ResultsTable items={items} />
-        </>
-      ) : null}
+            <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] px-4 py-3 font-mono text-xs">
+              <span className="text-[var(--text-muted)]">
+                Active{" "}
+                <span className="text-[var(--accent)]">{summary.activeCount}</span>
+              </span>
+              <span className="text-[var(--text-muted)]">
+                Done{" "}
+                <span className="text-[var(--success-text)]">{summary.completeCount}</span>
+              </span>
+              <span className="text-[var(--text-muted)]">
+                Failed{" "}
+                <span className="text-[var(--danger-text)]">{summary.failedCount}</span>
+              </span>
+              <span className="text-[var(--text-muted)]">
+                Total{" "}
+                <span className="text-[var(--text-secondary)]">{summary.total}</span>
+              </span>
+            </div>
 
-      {activeView === "library" ? (
-        <AssetLibraryManager items={items} config={config} />
-      ) : null}
-    </WorkspaceShell>
+            <ResultsTable items={items} />
+          </>
+        ) : null}
+
+        {activeView === "library" ? (
+          <AssetLibraryManager
+            items={items}
+            config={config}
+            onNotify={(message, tone) => pushToast(message, tone ?? "info")}
+            onQueueVersionUpload={queueVersionUpload}
+          />
+        ) : null}
+      </WorkspaceShell>
+
+      <KeyboardShortcutsModal
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+      />
+    </>
   );
 }
 

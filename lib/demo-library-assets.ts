@@ -1,7 +1,8 @@
 import { createDemoImageThumbnail, createDemoThumbnail } from "@/lib/demo-placeholders";
+import { normalizeAssetVersions } from "@/lib/library/versioning";
 import type { AssetType, LocalAssetRecord } from "@/lib/types";
 
-export const DEMO_LIBRARY_ASSETS: LocalAssetRecord[] = [
+const RAW_DEMO_LIBRARY_ASSETS: Partial<LocalAssetRecord>[] = [
   {
     id: "demo-1",
     name: "UI_IconInventory",
@@ -40,6 +41,18 @@ export const DEMO_LIBRARY_ASSETS: LocalAssetRecord[] = [
     tags: ["character", "hero", "mesh"],
     createdAt: 1_703_000_000_000,
     updatedAt: 1_703_000_000_000,
+    versions: [
+      {
+        assetId: "7729103801",
+        replacedAt: 1_702_900_000_000,
+        fileName: "hero_body_v1.mesh",
+      },
+      {
+        assetId: "7729103822",
+        replacedAt: 1_702_950_000_000,
+        fileName: "hero_body_v2.mesh",
+      },
+    ],
   },
   {
     id: "demo-4",
@@ -81,6 +94,10 @@ export const DEMO_LIBRARY_ASSETS: LocalAssetRecord[] = [
     updatedAt: 1_701_500_000_000,
   },
 ];
+
+export const DEMO_LIBRARY_ASSETS: LocalAssetRecord[] = RAW_DEMO_LIBRARY_ASSETS.map(
+  (asset) => normalizeAssetVersions(asset),
+);
 
 export function matchesLibrarySearch(asset: LocalAssetRecord, searchText: string): boolean {
   const query = searchText.trim().toLowerCase();
@@ -125,16 +142,4 @@ export function filterDemoLibraryAssets(
   });
 }
 
-export function getAssetTypeGlyph(type: AssetType): string {
-  switch (type) {
-    case "Audio":
-      return "A";
-    case "Model":
-      return "M";
-    case "Mesh":
-      return "X";
-    case "Image":
-    default:
-      return "I";
-  }
-}
+export { getAssetTypeGlyph } from "@/lib/library/asset-glyphs";

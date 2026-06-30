@@ -8,11 +8,11 @@ export function ShowTell() {
           <div className="max-w-lg">
             <p className="label mb-3">Show, don&apos;t tell</p>
             <h2 className="font-display text-2xl font-medium tracking-tight text-[var(--text-primary)] sm:text-3xl">
-              The same library UI as the workspace.
+              See your library in action.
             </h2>
             <p className="mt-3 text-[var(--text-secondary)]">
-              Search, filter, create folders, browse version history, select assets, and drag them
-              onto collections — the same shared components as the workspace library.
+              Search by name or asset ID, filter and folder assets, browse version history, and drag
+              rows into collections.
             </p>
           </div>
 

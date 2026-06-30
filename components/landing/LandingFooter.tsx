@@ -33,9 +33,12 @@ export function LandingFooter() {
               <Link href="/teams" className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]">
                 Teams &amp; self-hosting
               </Link>
-              <a href="#faq" className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]">
+              <Link href="/#show-tell" className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]">
+                Library
+              </Link>
+              <Link href="/#faq" className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]">
                 FAQ
-              </a>
+              </Link>
               <Link href="/changelog" className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]">
                 Changelog
               </Link>

@@ -17,16 +17,17 @@ interface NavLinkItem {
 }
 
 const LANDING_LINKS: NavLinkItem[] = [
-  { label: "Credentials", href: "#credentials" },
-  { label: "Demo", href: "#show-tell" },
-  { label: "Features", href: "#features" },
+  { label: "Credentials", href: "/#credentials" },
+  { label: "Library", href: "/#show-tell" },
+  { label: "Features", href: "/#features" },
   { label: "Teams", href: "/teams" },
-  { label: "FAQ", href: "#faq" },
+  { label: "FAQ", href: "/#faq" },
   { label: "Changelog", href: "/changelog" },
 ];
 
 const DEFAULT_LINKS: NavLinkItem[] = [
   { label: "Home", href: "/" },
+  { label: "Library", href: "/#show-tell" },
   { label: "Teams", href: "/teams" },
   { label: "Changelog", href: "/changelog" },
   { label: "FAQ", href: "/#faq" },

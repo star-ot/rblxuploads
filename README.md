@@ -1,5 +1,7 @@
 # Studio Vault (rblxuploads)
 
+![Vercel](https://vercelbadge.vercel.app/api/star-ot/studio-vault)
+
 **Made by [StarVSK](https://starvsk.dev)**
 
 Local-first Roblox asset workspace — bulk Open Cloud uploads, IndexedDB library, model package PATCH, InsertService scripts, and multi-profile credentials. MIT licensed. No telemetry.
@@ -8,6 +10,18 @@ The only outbound network traffic is to `apis.roblox.com` when you upload.
 
 - **Product site:** [/teams](https://uploader.starvsk.dev/teams) — self-hosting & security for studios
 - **Workspace:** [/workspace](https://uploader.starvsk.dev/workspace)
+
+## Quick start (Vercel)
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fstar-ot%2Fstudio-vault&project-name=studio-vault&repository-name=studio-vault)
+
+1. Click **Deploy** and import [star-ot/studio-vault](https://github.com/star-ot/studio-vault).
+2. Leave environment variables empty for a first deploy — Studio Vault detects `VERCEL_URL` for SEO and canonical links.
+3. Open `/workspace`, add Open Cloud credentials, and upload.
+
+After you add a custom domain, set `NEXT_PUBLIC_SITE_URL` to that URL in the Vercel project settings and redeploy so Open Graph and sitemap links stay correct.
+
+Optional: `RBLXUPLOADS_ALLOWED_ORIGINS` if you lock CORS to your deployment origin. See [DEPLOYMENT.md — Vercel](https://github.com/star-ot/studio-vault/blob/master/docs/DEPLOYMENT.md#quick-start-vercel).
 
 ## Quick start (local dev)
 
@@ -76,7 +90,7 @@ Configure vault mode in **Settings → Credential vault**.
 | Doc | Purpose |
 | --- | --- |
 | [SECURITY.md](https://github.com/star-ot/studio-vault/blob/master/docs/SECURITY.md) | Threat model, data flows, credential vault |
-| [DEPLOYMENT.md](https://github.com/star-ot/studio-vault/blob/master/docs/DEPLOYMENT.md) | Docker, env vars, reverse proxy |
+| [DEPLOYMENT.md](https://github.com/star-ot/studio-vault/blob/master/docs/DEPLOYMENT.md) | Vercel, Docker, env vars, reverse proxy |
 | [TEAM-WORKFLOWS.md](https://github.com/star-ot/studio-vault/blob/master/docs/TEAM-WORKFLOWS.md) | Git library sync, profiles |
 | [AUDIT-LOGGING.md](https://github.com/star-ot/studio-vault/blob/master/docs/AUDIT-LOGGING.md) | Structured upload logs |
 | [CI.md](https://github.com/star-ot/studio-vault/blob/master/docs/CI.md) | GitHub Actions example |

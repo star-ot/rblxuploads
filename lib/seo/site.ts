@@ -1,9 +1,29 @@
 const DEFAULT_SITE_URL = "https://uploader.starvsk.dev";
 
+/** Public site URL — explicit env, then Vercel build-time host, then default. */
+function resolveSiteUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (explicit) {
+    return explicit.replace(/\/$/, "");
+  }
+
+  const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (productionHost) {
+    return `https://${productionHost.replace(/\/$/, "")}`;
+  }
+
+  const vercelHost = process.env.VERCEL_URL?.trim();
+  if (vercelHost) {
+    return `https://${vercelHost.replace(/\/$/, "")}`;
+  }
+
+  return DEFAULT_SITE_URL;
+}
+
 export const siteConfig = {
   name: "Studio Vault",
   shortName: "Studio Vault",
-  url: (process.env.NEXT_PUBLIC_SITE_URL ?? DEFAULT_SITE_URL).replace(/\/$/, ""),
+  url: resolveSiteUrl(),
   title: "Studio Vault — Roblox Asset Workspace",
   description:
     "The asset browser Roblox developers always wanted. Browse, organize, and bulk-upload images, audio, models, and meshes via Open Cloud — including in-place model package updates, InsertService workspace scripts, encrypted multi-profile credentials, and local-first storage. Built for serious Roblox development.",

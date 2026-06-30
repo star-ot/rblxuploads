@@ -1,12 +1,42 @@
 # Deployment
 
-Deploy Studio Vault on infrastructure your studio controls. This guide covers Docker, Node.js, health checks, environment variables, and reverse-proxy patterns.
+Deploy Studio Vault on infrastructure your studio controls. This guide covers Vercel, Docker, Node.js, health checks, environment variables, and reverse-proxy patterns.
 
 ## Requirements
 
 - Node.js 20+ (for non-Docker installs)
 - Outbound HTTPS to `apis.roblox.com`
 - No database, Redis, or object storage required
+
+## Quick start (Vercel)
+
+![Vercel](https://vercelbadge.vercel.app/api/star-ot/studio-vault)
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fstar-ot%2Fstudio-vault&project-name=studio-vault&repository-name=studio-vault)
+
+Fastest path for solo devs and small teams — no Docker or server to manage.
+
+1. Click **Deploy with Vercel** above (or [import the repo](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fstar-ot%2Fstudio-vault) manually).
+2. Confirm **Framework Preset: Next.js** and the default build settings (`npm run build`, output `.next`).
+3. Deploy with **no required environment variables**. The app uses Vercel's `VERCEL_URL` / `VERCEL_PROJECT_PRODUCTION_URL` at build time for canonical links when `NEXT_PUBLIC_SITE_URL` is unset.
+4. Open `https://<your-project>.vercel.app/workspace`, add credentials in the browser, and upload.
+
+### Custom domain on Vercel
+
+1. Add your domain in the Vercel project → **Settings → Domains**.
+2. Set `NEXT_PUBLIC_SITE_URL=https://your-domain.com` in **Settings → Environment Variables** (Production).
+3. Redeploy so sitemap, Open Graph, and canonical URLs use your domain.
+
+### Optional Vercel env vars
+
+| Variable | When to set |
+| --- | --- |
+| `NEXT_PUBLIC_SITE_URL` | Custom domain or fixed public URL for SEO |
+| `RBLXUPLOADS_ALLOWED_ORIGINS` | Lock `/api/upload` CORS to your deployment origin |
+| `RBLXUPLOADS_AUDIT_LOG` | `1` for structured upload audit logs |
+| `RBLXUPLOADS_TRUST_PROXY` | `1` if you add an auth layer in front of Vercel |
+
+Credentials stay in each user's browser — never add `ROBLOX_OPEN_CLOUD_KEY` to the Vercel project.
 
 ## Quick start (Docker)
 
@@ -33,7 +63,7 @@ Default port: `3000`. Set `PORT` if your platform requires it.
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `NEXT_PUBLIC_SITE_URL` | Recommended | Public URL for SEO, OG tags, and canonical links (e.g. `https://vault.yourstudio.com`) |
+| `NEXT_PUBLIC_SITE_URL` | Recommended | Public URL for SEO, OG tags, and canonical links. On Vercel, auto-detected from `VERCEL_URL` when unset. |
 | `PORT` | No | HTTP port (default `3000`) |
 | `RBLXUPLOADS_AUDIT_LOG` | No | `1` to enable structured audit logging (Phase 3) |
 | `RBLXUPLOADS_AUDIT_LOG_PATH` | No | File path for audit log; stdout if unset |
@@ -58,7 +88,7 @@ Load balancers should probe:
 
 ```
 GET /api/health
-→ 200 { "ok": true, "version": "0.4.0" }
+→ 200 { "ok": true, "version": "0.5.0" }
 ```
 
 ## Reverse proxy — nginx

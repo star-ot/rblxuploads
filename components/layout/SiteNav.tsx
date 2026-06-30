@@ -221,7 +221,7 @@ export function SiteNav({ variant = "default" }: SiteNavProps) {
 
             <button
               type="button"
-              className={cn("site-nav-toggle", mobileNavClass)}
+              className={cn("site-nav-toggle inline-flex", mobileNavClass)}
               aria-expanded={open}
               aria-controls={menuId}
               aria-label={open ? "Close menu" : "Open menu"}

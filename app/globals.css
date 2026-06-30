@@ -1992,7 +1992,6 @@ body {
 }
 
 .site-nav-toggle {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 2.25rem;

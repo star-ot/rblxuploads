@@ -6,7 +6,8 @@ Studio Vault (rblxuploads) is a local-first, MIT-licensed Roblox asset workspace
 
 | Property | Default behavior |
 | --- | --- |
-| Credential storage | Browser `localStorage` only — not on server |
+| Credential metadata | Browser `localStorage` (labels, creator IDs — no secrets) |
+| Credential secrets | Browser IndexedDB, AES-GCM encrypted (API keys, webhook signing secret) |
 | Asset library | Browser IndexedDB — not on server |
 | External network | Roblox Open Cloud (`apis.roblox.com`) only |
 | Telemetry | None |
@@ -36,7 +37,45 @@ Studio Vault does not provide:
 - In-app authentication or RBAC
 - SOC 2 certified infrastructure
 - Encrypted at-rest server storage (there is no server database)
+- Protection against XSS on your origin (client-side encryption does not help if script can call decrypt)
 - Protection against a malicious insider with valid Open Cloud keys (they can upload to Roblox directly)
+
+## Credential vault
+
+Studio Vault splits credential storage:
+
+| Data | Storage | Encrypted? |
+| --- | --- | --- |
+| Profile `id`, `label`, `creatorId`, `creatorType`, timestamps | `localStorage` | No |
+| `activeProfileId`, concurrency, policy, webhook URL | `localStorage` | No |
+| API keys per profile | IndexedDB (`rblxuploads-credential-vault`) | **Yes** (AES-GCM) |
+| Webhook signing secret | IndexedDB | **Yes** |
+
+Encryption uses the Web Crypto API (PBKDF2 + AES-GCM). No additional dependencies.
+
+### Device-bound mode (default)
+
+On first visit, Studio Vault generates a random 256-bit device key in IndexedDB and encrypts secrets automatically. Solo developers get zero-friction protection against:
+
+- Casual DevTools inspection of plaintext keys in `localStorage`
+- Copying `localStorage` to another machine (ciphertext is useless without the device key)
+
+This does **not** protect against same-machine malware or XSS — treat network placement and CSP as mandatory for enterprise deploys.
+
+### Passphrase mode (opt-in)
+
+Studios and shared VMs can enable **Settings → Credential vault → Passphrase vault**:
+
+- Secrets decrypt only after unlock; plaintext keys live in memory until lock
+- Optional auto-lock after N minutes idle
+- Optional lock when the tab loses focus
+- Optional **remember on this device** — wraps the unlock key with the device key for faster daily unlock
+
+Profile metadata remains visible when locked so teams do not lose profile labels or creator IDs.
+
+### Migration
+
+Configs saved as plaintext in `localStorage` v4 migrate automatically to encrypted v5 on first load. Functionality is unchanged after migration.
 
 ## Data flows
 
@@ -57,18 +96,21 @@ Same pattern — FBX bytes and metadata forwarded to Roblox `PATCH /assets/v1/as
 ### What never hits your server (at rest)
 
 - IndexedDB library records
-- Credential profiles in localStorage
+- Encrypted credential vault blobs
+- Profile metadata in localStorage
 - Historical upload queue state
 
 ## Key handling
 
 | Location | Keys stored? |
 | --- | --- |
-| Browser localStorage | Yes (user-initiated) |
+| Browser localStorage | **No** (metadata only) |
+| Browser IndexedDB (credential vault) | **Yes** (encrypted) |
 | Studio Vault server | **No** |
 | Server logs (default) | **No** |
 | Audit log (optional) | **No** — keys are never logged |
 | `.env` on server | Not used for user keys |
+| CI runner secrets | **Yes** (env / pipeline store — separate from browser vault) |
 
 **CI/CD:** Use `ROBLOX_OPEN_CLOUD_KEY` on the runner or in pipeline secrets for the `studio-vault` CLI — not on the Studio Vault web instance.
 
@@ -85,7 +127,7 @@ Structured JSON lines per upload attempt. Fields: timestamp, event, actor, creat
 
 **Never logged:** `apiKey`, raw form fields containing secrets, file bytes, full Roblox error bodies that may echo request content.
 
-See [AUDIT-LOGGING.md](./AUDIT-LOGGING.md) (Phase 3).
+See [AUDIT-LOGGING.md](./AUDIT-LOGGING.md).
 
 ## Recommended proxy headers
 
@@ -109,7 +151,7 @@ Production deployments should serve:
 - `Referrer-Policy: strict-origin-when-cross-origin`
 - Content-Security-Policy compatible with Next.js inline requirements
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for implementation (Phase 2).
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for implementation.
 
 ## CORS lockdown
 

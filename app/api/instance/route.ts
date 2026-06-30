@@ -5,7 +5,7 @@ import {
   isPublicAuditLogFlag,
   isTrustProxyEnabled,
 } from "@/lib/server/config";
-import { siteConfig } from "@/lib/seo/site";
+import { githubDocsUrl } from "@/lib/seo/site";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,11 +21,11 @@ export async function GET(): Promise<Response> {
     auditLogEnabled,
     trustProxy: isTrustProxyEnabled(),
     docs: {
-      security: `${siteConfig.links.github}/blob/main/docs/SECURITY.md`,
-      deployment: `${siteConfig.links.github}/blob/main/docs/DEPLOYMENT.md`,
-      teamWorkflows: `${siteConfig.links.github}/blob/main/docs/TEAM-WORKFLOWS.md`,
-      auditLogging: `${siteConfig.links.github}/blob/main/docs/AUDIT-LOGGING.md`,
-      ci: `${siteConfig.links.github}/blob/main/docs/CI.md`,
+      security: githubDocsUrl("SECURITY.md"),
+      deployment: githubDocsUrl("DEPLOYMENT.md"),
+      teamWorkflows: githubDocsUrl("TEAM-WORKFLOWS.md"),
+      auditLogging: githubDocsUrl("AUDIT-LOGGING.md"),
+      ci: githubDocsUrl("CI.md"),
     },
   });
 }

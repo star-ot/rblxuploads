@@ -1,7 +1,7 @@
-import { siteConfig } from "@/lib/seo/site";
+import { githubDocsUrl } from "@/lib/seo/site";
 
 export function docsUrl(filename: string): string {
-  return `${siteConfig.links.github}/blob/main/docs/${filename}`;
+  return githubDocsUrl(filename);
 }
 
 export const TEAMS_WHY_ITEMS = [
@@ -23,7 +23,7 @@ export const TEAMS_WHY_ITEMS = [
   {
     title: "Multi-profile groups",
     description:
-      "Separate credential profiles per user or group. Switch from the header before each batch — keys stay in the browser.",
+      "Separate credential profiles per user or group. Switch from the header before each batch — keys encrypted in IndexedDB, never on the server.",
   },
   {
     title: "Zero telemetry",
@@ -36,7 +36,7 @@ export const TEAMS_SECURITY_NODES = [
   {
     id: "browser",
     label: "Developer browser",
-    detail: "IndexedDB library, localStorage credential profiles, upload queue UI",
+    detail: "IndexedDB library, encrypted credential vault, upload queue UI",
     stays: true,
   },
   {
@@ -55,7 +55,8 @@ export const TEAMS_SECURITY_NODES = [
 
 export const TEAMS_NEVER_LEAVES = [
   "Asset library metadata (IndexedDB)",
-  "Credential profiles at rest (localStorage — browser only)",
+  "Credential profile metadata (localStorage — labels and creator IDs only)",
+  "Encrypted API keys and webhook secrets (IndexedDB credential vault)",
   "API keys on the server (never stored server-side by default)",
   "File bytes after upload completes (not persisted on server)",
   "Telemetry or analytics payloads",
@@ -98,6 +99,11 @@ export const TEAMS_WORKFLOW_ITEMS = [
     title: "Git-backed library sync",
     description:
       "Export library.json or CSV from any teammate's workspace. Commit the canonical manifest to your game repo. Others import or merge on pull.",
+  },
+  {
+    title: "Encrypted credential vault",
+    description:
+      "Device-bound AES-GCM encryption by default. Optional passphrase vault with auto-lock for shared machines — metadata stays visible when locked.",
   },
   {
     title: "Credential profiles per group",
@@ -157,10 +163,10 @@ export const TEAMS_COMPARISON: ComparisonRow[] = [
     buildInHouse: "yes",
   },
   {
-    feature: "No vendor holds your API keys",
+    feature: "Encrypted credential vault (device + passphrase)",
     studioVault: "yes",
-    creatorDashboard: "yes",
-    buildInHouse: "yes",
+    creatorDashboard: "no",
+    buildInHouse: "partial",
   },
   {
     feature: "Zero telemetry by default",
@@ -186,7 +192,7 @@ export const TEAMS_FAQ = [
   {
     question: "Where are Open Cloud API keys stored?",
     answer:
-      "In the browser's localStorage on each developer machine — never on the Studio Vault server by default. During upload, keys travel per-request from browser → your self-hosted proxy → Roblox. For CI, keys live in the pipeline secret store or runner env, not in the Studio Vault instance.",
+      "Profile metadata (labels, creator IDs) lives in browser localStorage. API keys and webhook secrets are encrypted in IndexedDB with AES-GCM — device-bound by default, or passphrase-protected for shared machines. During upload, keys travel per-request from browser → your self-hosted proxy → Roblox. For CI, keys live in the pipeline secret store or runner env, not in the Studio Vault instance.",
   },
   {
     question: "What data leaves our network?",

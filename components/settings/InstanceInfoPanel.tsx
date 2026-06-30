@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { IconExternal } from "@/components/ui/Icon";
-import { siteConfig } from "@/lib/seo/site";
+import { githubDocsUrl } from "@/lib/seo/site";
 
 interface InstanceInfo {
   version: string;
@@ -75,13 +75,13 @@ export function InstanceInfoPanel() {
       )}
 
       <div className="settings-actions settings-instance-links mt-5">
-        <DocLink href={info?.docs.deployment ?? `${siteConfig.links.github}/blob/main/docs/DEPLOYMENT.md`}>
+        <DocLink href={info?.docs.deployment ?? githubDocsUrl("DEPLOYMENT.md")}>
           Deploy guide
         </DocLink>
-        <DocLink href={info?.docs.security ?? `${siteConfig.links.github}/blob/main/docs/SECURITY.md`}>
+        <DocLink href={info?.docs.security ?? githubDocsUrl("SECURITY.md")}>
           Security
         </DocLink>
-        <DocLink href={info?.docs.auditLogging ?? `${siteConfig.links.github}/blob/main/docs/AUDIT-LOGGING.md`}>
+        <DocLink href={info?.docs.auditLogging ?? githubDocsUrl("AUDIT-LOGGING.md")}>
           Audit logs
         </DocLink>
         <DocLink href="/teams">Teams page</DocLink>

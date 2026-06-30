@@ -12,6 +12,7 @@ import {
   upsertProfile,
 } from "@/lib/config/credentials";
 import { InstanceInfoPanel } from "@/components/settings/InstanceInfoPanel";
+import { VaultSettingsPanel } from "@/components/settings/VaultSettingsPanel";
 import { ObservabilityPanel } from "@/components/settings/ObservabilityPanel";
 import { PolicySettingsPanel } from "@/components/settings/PolicySettingsPanel";
 import { WebhookSettingsPanel } from "@/components/settings/WebhookSettingsPanel";
@@ -36,12 +37,16 @@ interface SettingsPanelProps {
   config: UploadConfig;
   onChange: (next: UploadConfig) => void;
   disabled?: boolean;
+  vaultLocked?: boolean;
+  onLockVault?: () => void;
 }
 
 export function SettingsPanel({
   config,
   onChange,
   disabled = false,
+  vaultLocked = false,
+  onLockVault,
 }: SettingsPanelProps) {
   const activeProfile = getActiveProfile(config);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -149,7 +154,7 @@ export function SettingsPanel({
       <section className="panel w-full min-w-0">
         <SectionHeader
           title="Credential profiles"
-          description="Save separate API keys for different users or groups. Everything stays in your browser — never on our servers."
+          description="Save separate API keys for different users or groups. Metadata stays in localStorage; keys are encrypted in IndexedDB on your machine — never on our servers."
         />
 
         <div className="mt-5 flex min-w-0 flex-col gap-5 lg:flex-row lg:items-start">
@@ -203,8 +208,8 @@ export function SettingsPanel({
                       Edit profile
                     </h3>
                     <p className="caption mt-1">
-                      Keys are sent to Roblox only when you upload — never logged
-                      or stored on disk.
+                      Keys are sent to Roblox only when you upload — never logged or stored on
+                      disk. {vaultLocked ? "Unlock the vault to edit API keys." : ""}
                     </p>
                   </div>
                   <div className="settings-inline-actions flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
@@ -276,7 +281,7 @@ export function SettingsPanel({
                         }
                         placeholder="Paste your Open Cloud API key"
                         className="field-input min-w-0 flex-1 font-mono text-sm"
-                        disabled={disabled}
+                        disabled={disabled || vaultLocked}
                         autoComplete="new-password"
                         spellCheck={false}
                         data-lpignore="true"
@@ -286,7 +291,7 @@ export function SettingsPanel({
                         type="button"
                         className="btn-secondary w-full shrink-0 sm:w-auto"
                         onClick={() => setShowApiKey((current) => !current)}
-                        disabled={disabled}
+                        disabled={disabled || vaultLocked}
                       >
                         {showApiKey ? "Hide" : "Show"}
                       </button>
@@ -304,7 +309,7 @@ export function SettingsPanel({
                           type="button"
                           className="btn-ghost text-xs text-[var(--danger-text)]"
                           onClick={() => updateProfileField("apiKey", "")}
-                          disabled={disabled}
+                          disabled={disabled || vaultLocked}
                         >
                           Clear key
                         </button>
@@ -466,6 +471,14 @@ export function SettingsPanel({
           }}
         />
       </section>
+
+      <VaultSettingsPanel
+        config={config}
+        onChange={onChange}
+        vaultLocked={vaultLocked}
+        onLockVault={() => onLockVault?.()}
+        disabled={disabled}
+      />
 
       <PolicySettingsPanel config={config} onChange={onChange} disabled={disabled} />
 

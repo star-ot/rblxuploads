@@ -4,8 +4,8 @@ import { IconCheck } from "@/components/ui/Icon";
 const HIGHLIGHTS = [
   "Separate keys per user or group",
   "One-click profile switching in the header",
-  "Masked keys with show/hide per profile",
-  "Existing settings migrate automatically",
+  "AES-GCM encrypted keys in IndexedDB by default",
+  "Optional passphrase vault for shared machines",
 ] as const;
 
 export function CredentialManagement() {

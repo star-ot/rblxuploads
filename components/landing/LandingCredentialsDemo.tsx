@@ -19,9 +19,9 @@ import {
 } from "@/components/ui/Icon";
 
 const SECURITY_POINTS = [
-  "Browser localStorage only — never written to disk or a server",
+  "Profile metadata in localStorage — API keys encrypted in IndexedDB",
+  "Device-bound encryption by default; passphrase vault for studios",
   "Keys masked in lists; reveal only when you choose",
-  "Switch profiles from the header without opening Settings",
   "Up to 25 profiles for users, groups, and environments",
 ] as const;
 

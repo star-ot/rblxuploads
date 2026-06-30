@@ -13,6 +13,8 @@ import {
   useWorkspaceShortcuts,
 } from "@/components/workspace/KeyboardShortcutsModal";
 import { WorkspaceOnboarding } from "@/components/workspace/WorkspaceOnboarding";
+import { VaultUnlockModal } from "@/components/VaultUnlockModal";
+import { useCredentialVaultLock } from "@/hooks/useCredentialVaultLock";
 import { usePersistedConfig } from "@/hooks/usePersistedConfig";
 import {
   getAssetType,
@@ -34,7 +36,14 @@ import { notifyBatchComplete } from "@/lib/webhook/client";
 type WorkspaceView = "upload" | "library" | "settings";
 
 export default function WorkspacePage() {
-  const [config, setConfig] = usePersistedConfig();
+  const {
+    config,
+    setConfig,
+    vaultLocked,
+    vaultLoading,
+    lockVault,
+    unlockVault,
+  } = usePersistedConfig();
   const [items, setItems] = useState<UploadQueueItem[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -45,6 +54,12 @@ export default function WorkspacePage() {
   const [libraryAssetCount, setLibraryAssetCount] = useState(0);
   const itemsRef = useRef(items);
   const { pushToast } = useToast();
+
+  useCredentialVaultLock({
+    config,
+    vaultLocked,
+    lockVault,
+  });
 
   useEffect(() => {
     itemsRef.current = items;
@@ -274,7 +289,9 @@ export default function WorkspacePage() {
       return;
     }
 
-    const credentialError = validateActiveProfile(config);
+    const credentialError = vaultLocked
+      ? "Unlock the credential vault in Settings before uploading."
+      : validateActiveProfile(config);
     if (credentialError) {
       setStatusMessage(credentialError);
       pushToast(credentialError, "error");
@@ -417,6 +434,10 @@ export default function WorkspacePage() {
 
   return (
     <>
+      <VaultUnlockModal
+        open={!vaultLoading && vaultLocked}
+        onUnlock={unlockVault}
+      />
       <WorkspaceShell
         activeView={activeView}
         onViewChange={setActiveView}
@@ -437,7 +458,13 @@ export default function WorkspacePage() {
         />
 
         {activeView === "settings" ? (
-          <SettingsPanel config={config} onChange={setConfig} disabled={isRunning} />
+          <SettingsPanel
+            config={config}
+            onChange={setConfig}
+            disabled={isRunning}
+            vaultLocked={vaultLocked}
+            onLockVault={lockVault}
+          />
         ) : null}
 
         {activeView === "upload" ? (

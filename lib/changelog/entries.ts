@@ -10,6 +10,35 @@ import type { ChangelogRelease } from "./types";
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: "0.5.0",
+    date: "2026-06-30",
+    title: "Encrypted credential vault",
+    summary:
+      "API keys and webhook secrets now encrypt at rest in IndexedDB with Web Crypto. Device-bound mode is automatic for solo devs; passphrase vault with auto-lock is opt-in for studios.",
+    changes: [
+      {
+        type: "added",
+        text: "Credential vault — AES-GCM encryption in IndexedDB; profile metadata stays in localStorage.",
+      },
+      {
+        type: "added",
+        text: "Device-bound mode (default) — auto-encrypt on first visit with zero unlock friction.",
+      },
+      {
+        type: "added",
+        text: "Passphrase vault (opt-in) — unlock modal, auto-lock, tab-blur lock, remember-on-device.",
+      },
+      {
+        type: "added",
+        text: "Automatic v4 → v5 migration from plaintext localStorage keys to encrypted storage.",
+      },
+      {
+        type: "changed",
+        text: "Docs links point to github.com/star-ot/studio-vault on the master branch.",
+      },
+    ],
+  },
+  {
     version: "0.4.0",
     date: "2026-06-30",
     title: "Teams, pipeline & studio ops",

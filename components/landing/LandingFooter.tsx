@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { siteConfig } from "@/lib/seo/site";
+import { githubDocsUrl, siteConfig } from "@/lib/seo/site";
 
 export function LandingFooter() {
   return (
@@ -54,7 +54,7 @@ export function LandingFooter() {
             <div className="space-y-2">
               <p className="label">Docs</p>
               <a
-                href={`${siteConfig.links.github}/blob/main/docs/SECURITY.md`}
+                href={githubDocsUrl("SECURITY.md")}
                 className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -62,7 +62,7 @@ export function LandingFooter() {
                 Security
               </a>
               <a
-                href={`${siteConfig.links.github}/blob/main/docs/DEPLOYMENT.md`}
+                href={githubDocsUrl("DEPLOYMENT.md")}
                 className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -70,7 +70,7 @@ export function LandingFooter() {
                 Deployment
               </a>
               <a
-                href={`${siteConfig.links.github}/blob/main/docs/TEAM-WORKFLOWS.md`}
+                href={githubDocsUrl("TEAM-WORKFLOWS.md")}
                 className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -90,7 +90,7 @@ export function LandingFooter() {
 
         <div className="mt-10 flex flex-col gap-2 border-t border-[var(--border-subtle)] pt-8 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-mono text-xs text-[var(--text-faint)]">
-            Credentials stay in your browser. No telemetry. No cloud storage.
+            Credentials encrypted in your browser. No telemetry. No cloud storage.
           </p>
           <p className="font-mono text-xs text-[var(--text-faint)]">MIT License · 2026</p>
         </div>

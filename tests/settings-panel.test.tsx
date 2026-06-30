@@ -13,7 +13,7 @@ describe("SettingsPanel", () => {
     expect(screen.getByRole("heading", { name: /credential profiles/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/profile name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/parallel uploads/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /instance info/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /credential vault/i })).toBeInTheDocument();
   });
 
   it("uses responsive settings layout hooks", () => {

@@ -8,6 +8,18 @@ export type UploadStatus =
 export type CreatorType = "user" | "group";
 export type AssetType = "Image" | "Audio" | "Model" | "Mesh";
 
+/** Device-bound auto-encryption (default) or passphrase vault for shared machines. */
+export type CredentialVaultMode = "device" | "passphrase";
+
+export interface CredentialVaultSettings {
+  mode: CredentialVaultMode;
+  /** Minutes of inactivity before auto-lock. 0 = off. Passphrase mode only. */
+  autoLockMinutes: number;
+  lockOnTabBlur: boolean;
+  /** Cache wrapped passphrase key on this device for faster daily unlock. */
+  rememberOnDevice: boolean;
+}
+
 /** One saved Open Cloud credential set (user or group). */
 export interface CredentialProfile {
   id: string;
@@ -64,6 +76,7 @@ export interface UploadConfig {
   maxRetries: number;
   policy: UploadPolicyConfig;
   webhook: WebhookConfig;
+  vault: CredentialVaultSettings;
 }
 
 export interface UploadQueueItem {

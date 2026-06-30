@@ -1,11 +1,15 @@
 import type { UploadConfig } from "@/lib/types";
 import { DEFAULT_UPLOAD_POLICY, DEFAULT_WEBHOOK_CONFIG } from "@/lib/policy/defaults";
+import { DEFAULT_VAULT_SETTINGS } from "@/lib/config/vault-defaults";
 
 /** localStorage key — bump version when persisted shape changes. */
-export const CONFIG_STORAGE_KEY = "starvsk-rblx-uploader-config-v4";
+export const CONFIG_STORAGE_KEY = "starvsk-rblx-uploader-config-v5";
 
 /** Previous key — read once for migration, never written again. */
-export const LEGACY_CONFIG_STORAGE_KEY = "starvsk-rblx-uploader-config-v3";
+export const LEGACY_CONFIG_STORAGE_KEY = "starvsk-rblx-uploader-config-v4";
+
+/** v3 plaintext config — migrated through v4 reader when present. */
+export const LEGACY_V3_CONFIG_STORAGE_KEY = "starvsk-rblx-uploader-config-v3";
 
 /** Sensible defaults for a fresh install. No secrets are embedded here. */
 export const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
@@ -15,6 +19,7 @@ export const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
   maxRetries: 2,
   policy: { ...DEFAULT_UPLOAD_POLICY },
   webhook: { ...DEFAULT_WEBHOOK_CONFIG },
+  vault: { ...DEFAULT_VAULT_SETTINGS },
 };
 
 /** Roblox Open Cloud is the only external network dependency in this app. */

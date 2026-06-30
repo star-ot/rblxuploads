@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SectionHeader } from "@/components/ui/SectionHeader";
-import { siteConfig } from "@/lib/seo/site";
+import { githubDocsUrl } from "@/lib/seo/site";
 
 interface MetricsSnapshot {
   uploadsSucceeded: number;
@@ -85,7 +85,7 @@ export function ObservabilityPanel() {
               Health JSON
             </a>
             <a
-              href={`${siteConfig.links.github}/blob/main/docs/DEPLOYMENT.md`}
+              href={githubDocsUrl("DEPLOYMENT.md")}
               className="cred-link"
               target="_blank"
               rel="noopener noreferrer"

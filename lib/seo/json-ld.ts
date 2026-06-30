@@ -231,7 +231,7 @@ export function teamsPageJsonLd() {
           name: "Where are Open Cloud API keys stored?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "In the browser localStorage on each developer machine — never on the Studio Vault server by default. During upload, keys travel per-request from browser to your self-hosted proxy to Roblox.",
+            text: "Profile metadata lives in browser localStorage. API keys and webhook secrets are AES-GCM encrypted in IndexedDB — device-bound by default, or passphrase-protected for shared machines. Keys never rest on the Studio Vault server.",
           },
         },
         {

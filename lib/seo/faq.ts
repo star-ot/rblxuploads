@@ -22,7 +22,7 @@ export const FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "Does Studio Vault store my Roblox API key?",
     answer:
-      "Your Open Cloud API keys are saved in browser localStorage only. You can save multiple credential profiles for different users or groups, switch between them from the workspace header, and keys are sent to Roblox during uploads through a local proxy — never stored on a server.",
+      "Your Open Cloud API keys are encrypted in browser IndexedDB (AES-GCM). Profile labels and creator IDs stay in localStorage. Device-bound encryption is automatic; studios can opt into a passphrase vault with auto-lock. Keys are sent to Roblox during uploads through a local proxy — never stored on a server.",
   },
   {
     question: "Can I use different API keys for different Roblox groups?",
@@ -52,7 +52,7 @@ export const FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "Does Studio Vault send my data to third-party servers?",
     answer:
-      "No telemetry, analytics, or cloud storage. Your asset library lives in browser IndexedDB. API keys stay in localStorage. The only outbound network traffic during uploads goes from your machine to Roblox's Open Cloud API through a local Next.js proxy required because Roblox blocks direct browser CORS requests.",
+      "No telemetry, analytics, or cloud storage. Your asset library lives in browser IndexedDB. API keys are encrypted in IndexedDB; profile metadata stays in localStorage. The only outbound network traffic during uploads goes from your machine to Roblox's Open Cloud API through a local Next.js proxy required because Roblox blocks direct browser CORS requests.",
   },
   {
     question: "Can I export and share my asset library?",

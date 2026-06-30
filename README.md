@@ -27,7 +27,7 @@ docker build -t studio-vault .
 docker run -p 3000:3000 -e NEXT_PUBLIC_SITE_URL=http://localhost:3000 studio-vault
 ```
 
-Or `docker compose up`. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Or `docker compose up`. See [docs/DEPLOYMENT.md](https://github.com/star-ot/studio-vault/blob/master/docs/DEPLOYMENT.md).
 
 Health check: `GET /api/health` → `{ "ok": true, "version": "…", "metrics": { … } }`
 
@@ -42,7 +42,7 @@ npm run cli -- validate ./assets/ci --pattern "^UI_[A-Za-z0-9_]+$"
 
 Credentials via env: `ROBLOX_OPEN_CLOUD_KEY`, `ROBLOX_CREATOR_ID`, `ROBLOX_CREATOR_TYPE` — or `studio-vault.json` (see `studio-vault.json.example`).
 
-Full guide: [docs/CI.md](docs/CI.md) · GitHub Actions: [.github/workflows/studio-vault-upload.yml](.github/workflows/studio-vault-upload.yml)
+Full guide: [docs/CI.md](https://github.com/star-ot/studio-vault/blob/master/docs/CI.md) · GitHub Actions: [.github/workflows/studio-vault-upload.yml](.github/workflows/studio-vault-upload.yml)
 
 ## Features
 
@@ -52,27 +52,41 @@ Full guide: [docs/CI.md](docs/CI.md) · GitHub Actions: [.github/workflows/studi
 - **Upload policy** — enforce naming patterns and image dimensions in the workspace and CI (`studio-vault validate`)
 - Model package in-place PATCH (FBX)
 - InsertService Luau script generator
-- Multi-profile credential switching (localStorage only)
+- Multi-profile credential switching with **encrypted credential vault** (IndexedDB + Web Crypto)
 - **Observability** — `/api/metrics`, live counters in Settings
 - **Webhooks** — Slack/Discord batch-complete notifications (optional)
 - Optional audit logging for self-hosted deploys
 - `studio-vault` CLI for pipelines
 
+## Credential vault
+
+Profile metadata (labels, creator IDs) stays in `localStorage`. API keys and webhook secrets are encrypted in IndexedDB with AES-GCM.
+
+| Mode | Who it's for | Behavior |
+| --- | --- | --- |
+| **Device-bound** (default) | Solo devs | Auto-encrypt on first visit. No unlock step. Blocks casual storage inspection and copying `localStorage` to another PC. |
+| **Passphrase** (opt-in) | Studios / shared VMs | Unlock each session. Optional auto-lock, tab-blur lock, and remember-on-device. |
+
+Existing plaintext v4 settings migrate automatically on first load. CI/CD continues to use `ROBLOX_OPEN_CLOUD_KEY` on the runner — separate from the browser vault.
+
+Configure vault mode in **Settings → Credential vault**.
+
 ## Documentation
 
 | Doc | Purpose |
 | --- | --- |
-| [docs/SECURITY.md](docs/SECURITY.md) | Threat model, data flows |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Docker, env vars, reverse proxy |
-| [docs/TEAM-WORKFLOWS.md](docs/TEAM-WORKFLOWS.md) | Git library sync, profiles |
-| [docs/AUDIT-LOGGING.md](docs/AUDIT-LOGGING.md) | Structured upload logs |
-| [docs/CI.md](docs/CI.md) | GitHub Actions example |
+| [SECURITY.md](https://github.com/star-ot/studio-vault/blob/master/docs/SECURITY.md) | Threat model, data flows, credential vault |
+| [DEPLOYMENT.md](https://github.com/star-ot/studio-vault/blob/master/docs/DEPLOYMENT.md) | Docker, env vars, reverse proxy |
+| [TEAM-WORKFLOWS.md](https://github.com/star-ot/studio-vault/blob/master/docs/TEAM-WORKFLOWS.md) | Git library sync, profiles |
+| [AUDIT-LOGGING.md](https://github.com/star-ot/studio-vault/blob/master/docs/AUDIT-LOGGING.md) | Structured upload logs |
+| [CI.md](https://github.com/star-ot/studio-vault/blob/master/docs/CI.md) | GitHub Actions example |
 
 ## Security model
 
 - No server-side credential storage by default
 - No telemetry or third-party CDNs
-- API keys in browser localStorage; per-request proxy to Roblox only
+- API keys encrypted in browser IndexedDB; profile metadata in localStorage; per-request proxy to Roblox only
+- Optional passphrase vault with auto-lock for shared machines
 - Optional `RBLXUPLOADS_AUDIT_LOG=1` — never logs keys or file bytes
 
 ## Scripts
@@ -83,7 +97,7 @@ Full guide: [docs/CI.md](docs/CI.md) · GitHub Actions: [.github/workflows/studi
 | `npm run build` | Production build |
 | `npm run start` | Serve production build |
 | `npm run lint` | ESLint |
-| `npm test` | Unit tests (policy, metrics, versioning, library export, CLI validate) |
+| `npm test` | Unit tests (policy, metrics, versioning, library export, CLI validate, credential vault) |
 | `npm run cli` | Studio Vault CLI |
 | `npm run validate:assets` | Policy-check a folder (`--pattern`, `--max-name-length`) |
 

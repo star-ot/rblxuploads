@@ -21,7 +21,7 @@ const FEATURES = [
     icon: IconSettings,
     title: "Credential profiles for every group",
     description:
-      "Save separate Open Cloud keys for users and groups. Switch from the header before you upload — keys stay masked and browser-only.",
+      "Save separate Open Cloud keys for users and groups. Switch from the header before you upload — keys encrypted in IndexedDB, masked in the UI.",
   },
   {
     icon: IconSearch,
@@ -80,7 +80,7 @@ const REASONS = [
   },
   {
     stat: "0 servers",
-    label: "Multi-profile credentials never leave your browser",
+    label: "Encrypted keys never leave your browser",
   },
   {
     stat: "∞ local",

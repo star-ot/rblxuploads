@@ -32,7 +32,7 @@ export function Hero() {
             </div>
 
             <p className="mt-6 font-mono text-xs text-[var(--text-faint)]">
-              Local-first · Version chains · Multi-profile Open Cloud · Upload → Workspace scripts
+              Local-first · Encrypted credentials · Version chains · Multi-profile Open Cloud
             </p>
           </div>
 

@@ -6,7 +6,7 @@ Studio Vault has no cloud-synced library and no shared user accounts. Teams coll
 
 1. **Roblox is the source of truth for assets** — rbxassetids exist on Roblox after upload.
 2. **Git is the source of truth for metadata** — names, folders, tags, and IDs your team needs day-to-day.
-3. **API keys never go in Git** — use per-developer localStorage or CI secrets.
+3. **API keys never go in Git** — use per-developer encrypted browser vault or CI secrets.
 4. **Each developer has their own IndexedDB** — merge imports; don't expect live sync.
 
 ## Credential profile conventions
@@ -30,6 +30,22 @@ Before each batch upload, switch the active profile in the workspace header. Wro
 ### Profile metadata export (Phase 5)
 
 Optional export of labels and creator IDs **without** API keys. Keys require explicit opt-in with a confirmation dialog.
+
+### Credential vault for studios
+
+Default **device-bound** encryption is automatic and needs no setup — ideal for solo devs.
+
+For shared VMs or loaner laptops, enable **Settings → Credential vault → Passphrase vault**:
+
+| Setting | Enterprise value | Solo impact |
+| --- | --- | --- |
+| Auto-lock timeout | Locks keys after idle time on shared machines | Off by default |
+| Passphrase mode | Lead-held group keys stay encrypted at rest | Optional |
+| Lock on tab blur | Keys cleared when switching away | Off by default |
+| Remember on this device | Faster unlock on trusted workstations | Optional |
+| Export with keys | Still blocked by default confirmation | Unchanged |
+
+CI pipelines continue using `ROBLOX_OPEN_CLOUD_KEY` in runner secrets — separate from the browser vault.
 
 ## Library sync via Git
 
@@ -101,7 +117,7 @@ See [AUDIT-LOGGING.md](./AUDIT-LOGGING.md).
 ## Anti-patterns
 
 - Committing `studio-vault.json` with API keys
-- Sharing one browser profile on a shared VM (IndexedDB collision)
+- Sharing one browser profile on a shared VM (IndexedDB collision) — use passphrase vault + lock on exit
 - Expecting real-time library sync without Git pull + import
 - Hosting Studio Vault on the public internet without Access/VPN
 

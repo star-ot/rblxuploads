@@ -6,7 +6,7 @@ export const siteConfig = {
   url: (process.env.NEXT_PUBLIC_SITE_URL ?? DEFAULT_SITE_URL).replace(/\/$/, ""),
   title: "Studio Vault — Roblox Asset Workspace",
   description:
-    "The asset browser Roblox developers always wanted. Browse, organize, and bulk-upload images, audio, models, and meshes via Open Cloud — including in-place model package updates, InsertService workspace scripts, and multi-profile credential switching. Local-first. No telemetry. Built for serious Roblox development.",
+    "The asset browser Roblox developers always wanted. Browse, organize, and bulk-upload images, audio, models, and meshes via Open Cloud — including in-place model package updates, InsertService workspace scripts, encrypted multi-profile credentials, and local-first storage. Built for serious Roblox development.",
   tagline: "Find. Organize. Ship.",
   ogImageAlt:
     "Studio Vault — Roblox asset workspace for bulk Open Cloud uploads and local rbxassetid libraries",
@@ -50,10 +50,15 @@ export const siteConfig = {
     teams: "/teams",
   },
   links: {
-    github: "https://github.com/star-ot/rblxuploads",
+    github: "https://github.com/star-ot/studio-vault",
+    docsBranch: "master",
     robloxCredentials: "https://create.roblox.com/dashboard/credentials",
   },
 } as const;
+
+export function githubDocsUrl(filename: string): string {
+  return `${siteConfig.links.github}/blob/${siteConfig.links.docsBranch}/docs/${filename}`;
+}
 
 export function absoluteUrl(path = "/"): string {
   const normalized = path.startsWith("/") ? path : `/${path}`;

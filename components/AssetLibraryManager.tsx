@@ -15,6 +15,15 @@ import {
   upsertLocalAsset,
   upsertLocalFolder,
 } from "@/lib/local-assets-db";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconCopy,
+  IconFolder,
+  IconSearch,
+} from "@/components/ui/Icon";
 import { canUpdateModelPackage } from "@/lib/file-parser";
 import { updateModelPackage } from "@/lib/upload/client";
 import type {
@@ -569,68 +578,70 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
 
   return (
     <section className="panel">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-display text-lg text-[var(--text-primary)]">Local asset library</h2>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
-            IndexedDB-backed local records with folders, tags, fast filters, and portable import/export.
-          </p>
-        </div>
-        <div className="font-mono text-xs text-[var(--text-muted)]">
-          {assets.length} assets · {folders.length} folders
-        </div>
-      </div>
+      <SectionHeader
+        title="Asset library"
+        description="Your local collection. Folders, tags, search, and portable export — stored in IndexedDB on your machine."
+        meta={`${assets.length} assets · ${folders.length} folders`}
+      />
 
-      <div className="grid gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_auto]">
+      <div className="grid gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="relative sm:col-span-2">
+          <IconSearch
+            size={14}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]"
+          />
+          <input
+            className="field-input pl-9"
+            placeholder="Search name, ID, folder, tags…"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            aria-label="Search assets"
+          />
+        </div>
         <input
           className="field-input"
-          placeholder="Search name, id, folder path, file, tags..."
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-        <input
-          className="field-input"
-          placeholder="Tag contains..."
+          placeholder="Filter by tag"
           value={tagFilter}
           onChange={(event) => setTagFilter(event.target.value)}
+          aria-label="Filter by tag"
         />
         <div className="flex gap-2">
-          <button type="button" className="btn-secondary" onClick={clearFilters}>
-            Reset filters
-          </button>
+          <select
+            className="field-input flex-1"
+            value={typeFilter}
+            onChange={(event) => setTypeFilter(event.target.value as "all" | AssetType)}
+            aria-label="Filter by type"
+          >
+            <option value="all">All types</option>
+            <option value="Image">Image</option>
+            <option value="Audio">Audio</option>
+            <option value="Model">Model</option>
+            <option value="Mesh">Mesh</option>
+          </select>
+          <select
+            className="field-input flex-1"
+            value={sortKey}
+            onChange={(event) => setSortKey(event.target.value as SortKey)}
+            aria-label="Sort order"
+          >
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="name-asc">Name A–Z</option>
+            <option value="name-desc">Name Z–A</option>
+            <option value="type">Type</option>
+          </select>
         </div>
-        <select
-          className="field-input"
-          value={typeFilter}
-          onChange={(event) => setTypeFilter(event.target.value as "all" | AssetType)}
-        >
-          <option value="all">All types</option>
-          <option value="Image">Image</option>
-          <option value="Audio">Audio</option>
-          <option value="Model">Model</option>
-          <option value="Mesh">Mesh</option>
-        </select>
-        <select
-          className="field-input"
-          value={sortKey}
-          onChange={(event) => setSortKey(event.target.value as SortKey)}
-        >
-          <option value="newest">Sort: newest first</option>
-          <option value="oldest">Sort: oldest first</option>
-          <option value="name-asc">Sort: name A-Z</option>
-          <option value="name-desc">Sort: name Z-A</option>
-          <option value="type">Sort: type</option>
-        </select>
+        <button type="button" className="btn-ghost justify-self-start text-[13px]" onClick={clearFilters}>
+          Reset filters
+        </button>
       </div>
 
       <div className="mt-3 grid gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="flex flex-col gap-1 md:col-span-2 xl:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-medium text-[var(--text-secondary)]">Create folder</p>
-            <p className="text-[11px] text-[var(--text-muted)]">
-              <span className="font-mono">
-                {normalizeFolderPath(`${newFolderParent}/${newFolderName || "..."}`)}
-              </span>
+            <p className="label">New collection</p>
+            <p className="font-mono text-[11px] text-[var(--text-faint)]">
+              {normalizeFolderPath(`${newFolderParent}/${newFolderName || "…"}`)}
             </p>
           </div>
           <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
@@ -652,14 +663,14 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
               onChange={(event) => setNewFolderName(event.target.value)}
             />
             <button type="button" className="btn-secondary" onClick={() => createFolder()}>
-              Create
+              Create folder
             </button>
             <button
               type="button"
-              className="btn-secondary"
+              className="btn-ghost"
               onClick={() => createFolder("")}
             >
-              + Root
+              At root
             </button>
           </div>
         </div>
@@ -748,7 +759,7 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
         </button>
       </div>
       {managerStatus ? (
-        <p className="mt-2 text-xs text-[var(--text-muted)]">{managerStatus}</p>
+        <p className="alert alert-info mt-3 text-[13px]" role="status">{managerStatus}</p>
       ) : null}
 
       <input
@@ -765,25 +776,23 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
         }}
       />
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
         <aside className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-2">
-          <p className="px-2 pb-2 text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
-            Explorer
-          </p>
-          <p className="px-2 pb-2 text-[11px] text-[var(--text-muted)]">
-            Select a folder, then use <span className="font-medium">Create nested folder</span>.
-          </p>
+          <p className="label px-2 pb-2">Collections</p>
           <button
             type="button"
-            className={`mb-2 flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm ${
+            className={`mb-1 flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-[13px] transition-colors ${
               folderFilter === ALL_FOLDERS_OPTION
-                ? "bg-[var(--accent-glow)] text-[var(--text-primary)]"
-                : "text-[var(--text-secondary)] hover:bg-[var(--surface)]"
+                ? "bg-[var(--accent-muted)] text-[var(--text-primary)]"
+                : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
             }`}
             onClick={() => setFolderFilter(ALL_FOLDERS_OPTION)}
           >
-            <span>All folders</span>
-            <span className="font-mono text-xs">{assets.length}</span>
+            <span className="flex items-center gap-2">
+              <IconFolder size={14} className="shrink-0 opacity-60" />
+              All assets
+            </span>
+            <span className="font-mono text-[11px] text-[var(--text-faint)]">{assets.length}</span>
           </button>
           <div className="max-h-[24rem] overflow-y-auto pr-1">
             {folderTree.map((node) => (
@@ -801,99 +810,125 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
           </div>
         </aside>
 
-        <div className="max-h-[24rem] overflow-y-auto rounded-lg border border-[var(--border-subtle)]">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--border-subtle)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
-                <th className="px-3 py-2 font-medium">
-                  <input
-                    type="checkbox"
-                    checked={
-                      filteredAssets.length > 0 &&
-                      filteredAssets.every((asset) => selectedAssetIds.has(asset.id))
-                    }
-                    onChange={(event) => {
-                      if (event.target.checked) {
-                        setSelectedAssetIds(new Set(filteredAssets.map((asset) => asset.id)));
-                      } else {
-                        setSelectedAssetIds(new Set());
-                      }
-                    }}
-                  />
-                </th>
-                <th className="px-3 py-2 font-medium">Thumb</th>
-                <th className="px-3 py-2 font-medium">Name</th>
-                <th className="px-3 py-2 font-medium">Type</th>
-                <th className="px-3 py-2 font-medium">rbxassetid</th>
-                <th className="px-3 py-2 font-medium">Folder</th>
-                <th className="px-3 py-2 font-medium">Tags</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAssets.map((asset) => (
-                <tr
-                  key={asset.id}
-                  className="border-b border-[var(--border-subtle)] text-[var(--text-secondary)] last:border-0"
-                >
-                  <td className="px-3 py-2">
+        <div className="overflow-x-auto rounded-lg border border-[var(--border-subtle)]">
+          {filteredAssets.length === 0 ? (
+            <EmptyState
+              icon={<IconFolder size={18} />}
+              title="No assets found"
+              description={
+                assets.length === 0
+                  ? "Completed uploads are saved here automatically. Upload assets to get started."
+                  : "Try adjusting your search or filters."
+              }
+            />
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th className="w-10">
                     <input
                       type="checkbox"
-                      checked={selectedAssetIds.has(asset.id)}
+                      aria-label="Select all visible assets"
+                      checked={
+                        filteredAssets.length > 0 &&
+                        filteredAssets.every((asset) => selectedAssetIds.has(asset.id))
+                      }
                       onChange={(event) => {
-                        const next = new Set(selectedAssetIds);
                         if (event.target.checked) {
-                          next.add(asset.id);
+                          setSelectedAssetIds(new Set(filteredAssets.map((asset) => asset.id)));
                         } else {
-                          next.delete(asset.id);
+                          setSelectedAssetIds(new Set());
                         }
-                        setSelectedAssetIds(next);
                       }}
                     />
-                  </td>
-                  <td className="px-3 py-2">
-                    {asset.thumbnailDataUrl ? (
-                      <img
-                        src={asset.thumbnailDataUrl}
-                        alt={asset.name}
-                        className="h-8 w-8 rounded border border-[var(--border)] object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-8 w-8 items-center justify-center rounded border border-[var(--border)] bg-[var(--surface)] text-[10px] text-[var(--text-muted)]">
-                        {getAssetTypeGlyph(asset.type)}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-[var(--text-primary)]">{asset.name}</td>
-                  <td className="px-3 py-2">{asset.type}</td>
-                  <td className="px-3 py-2 font-mono text-xs">
-                    <button
-                      type="button"
-                      className="btn-secondary px-2 py-1 text-xs"
-                      onClick={() => navigator.clipboard.writeText(asset.assetUri)}
-                    >
-                      {asset.assetUri}
-                    </button>
-                  </td>
-                  <td className="px-3 py-2">{asset.folderPath}</td>
-                  <td className="px-3 py-2">{asset.tags.join(", ") || "—"}</td>
+                  </th>
+                  <th className="w-12" />
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Asset ID</th>
+                  <th className="hidden md:table-cell">Collection</th>
+                  <th className="hidden lg:table-cell">Tags</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredAssets.length === 0 ? (
-            <div className="p-4 text-sm text-[var(--text-muted)]">
-              No assets match current filters.
-            </div>
-          ) : null}
+              </thead>
+              <tbody>
+                {filteredAssets.map((asset) => (
+                  <tr key={asset.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${asset.name}`}
+                        checked={selectedAssetIds.has(asset.id)}
+                        onChange={(event) => {
+                          const next = new Set(selectedAssetIds);
+                          if (event.target.checked) {
+                            next.add(asset.id);
+                          } else {
+                            next.delete(asset.id);
+                          }
+                          setSelectedAssetIds(next);
+                        }}
+                      />
+                    </td>
+                    <td>
+                      {asset.thumbnailDataUrl ? (
+                        <img
+                          src={asset.thumbnailDataUrl}
+                          alt=""
+                          className="h-8 w-8 rounded border border-[var(--border-subtle)] object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-8 w-8 items-center justify-center rounded border border-[var(--border-subtle)] bg-[var(--surface-inset)] text-[10px] font-medium text-[var(--text-muted)]">
+                          {getAssetTypeGlyph(asset.type)}
+                        </div>
+                      )}
+                    </td>
+                    <td className="font-medium text-[var(--text-primary)]">{asset.name}</td>
+                    <td className="text-[var(--text-muted)]">{asset.type}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn-ghost max-w-[10rem] truncate p-1 font-mono text-[11px] sm:max-w-none"
+                        onClick={() => navigator.clipboard.writeText(asset.assetUri)}
+                        title="Click to copy"
+                      >
+                        <IconCopy size={12} className="mr-1 inline shrink-0" />
+                        {asset.assetId}
+                      </button>
+                    </td>
+                    <td className="hidden font-mono text-[11px] text-[var(--text-muted)] md:table-cell">
+                      {asset.folderPath}
+                    </td>
+                    <td className="hidden text-[var(--text-muted)] lg:table-cell">
+                      {asset.tags.length > 0 ? (
+                        <span className="flex flex-wrap gap-1">
+                          {asset.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded px-1.5 py-0.5 font-mono text-[10px]"
+                              style={{ background: "var(--surface-hover)" }}
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
-      <div className="mt-5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3">
-        <h3 className="font-display text-base text-[var(--text-primary)]">
+      <div className="mt-5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-4">
+        <h3 className="font-display text-[15px] font-medium text-[var(--text-primary)]">
           Update model package
         </h3>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
-          Roblox currently allows package content updates for models (FBX upload).
+        <p className="mt-1 caption">
+          Replace the content of an existing model asset via Open Cloud. FBX only.
         </p>
         <div className="mt-3 grid gap-2 md:grid-cols-3">
           <input
@@ -916,7 +951,7 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
           </button>
         </div>
         {modelUpdateStatus ? (
-          <p className="mt-2 text-xs text-[var(--text-muted)]">{modelUpdateStatus}</p>
+          <p className="alert alert-info mt-3 text-[13px]" role="status">{modelUpdateStatus}</p>
         ) : null}
       </div>
     </section>
@@ -950,15 +985,15 @@ function FolderTreeItem({
   return (
     <div>
       <div
-        className={`mb-0.5 flex items-center gap-1 rounded pr-1 ${
+        className={`mb-0.5 flex items-center gap-0.5 rounded-md pr-1 ${
           isSelected
-            ? "bg-[var(--accent-glow)] text-[var(--text-primary)]"
-            : "text-[var(--text-secondary)] hover:bg-[var(--surface)]"
+            ? "bg-[var(--accent-muted)] text-[var(--text-primary)]"
+            : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
         }`}
       >
         <button
           type="button"
-          className={`h-7 w-6 text-center text-xs ${hasChildren ? "" : "opacity-0"}`}
+          className={`flex h-7 w-6 shrink-0 items-center justify-center ${hasChildren ? "text-[var(--text-muted)]" : "opacity-0"}`}
           onClick={() => {
             if (hasChildren) {
               onToggleExpand(node.path);
@@ -966,16 +1001,19 @@ function FolderTreeItem({
           }}
           aria-label={isExpanded ? "Collapse folder" : "Expand folder"}
         >
-          {isExpanded ? "v" : ">"}
+          {isExpanded ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
         </button>
         <button
           type="button"
-          className="flex min-h-7 flex-1 items-center justify-between rounded py-1 text-left text-sm"
-          style={{ paddingLeft: `${depth * 0.65}rem` }}
+          className="flex min-h-7 flex-1 items-center justify-between gap-2 rounded py-1.5 text-left text-[13px]"
+          style={{ paddingLeft: `${depth * 0.5}rem` }}
           onClick={() => onSelect(node.path)}
         >
-          <span className="truncate">{node.name}</span>
-          <span className="ml-2 font-mono text-xs text-[var(--text-muted)]">
+          <span className="flex min-w-0 items-center gap-1.5 truncate">
+            <IconFolder size={13} className="shrink-0 opacity-50" />
+            {node.name}
+          </span>
+          <span className="shrink-0 font-mono text-[10px] text-[var(--text-faint)]">
             {nestedAssetCounts.get(node.path) ?? 0}
           </span>
         </button>

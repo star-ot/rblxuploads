@@ -1,13 +1,19 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
+import { useState } from "react";
 import type { UploadQueueItem } from "@/lib/types";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { IconAudio, IconCopy, IconImage, IconModel } from "@/components/ui/Icon";
 
 interface ResultsTableProps {
   items: UploadQueueItem[];
 }
 
 export function ResultsTable({ items }: ResultsTableProps) {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const finished = items.filter(
     (item) => item.status === "complete" || item.status === "failed",
   );
@@ -17,12 +23,14 @@ export function ResultsTable({ items }: ResultsTableProps) {
     (item): item is UploadQueueItem & { assetId: string } => Boolean(item.assetId),
   );
 
-  async function copyOne(assetId: string | undefined) {
+  async function copyOne(assetId: string | undefined, itemId: string) {
     if (!assetId) {
       return;
     }
 
     await navigator.clipboard.writeText(`rbxassetid://${assetId}`);
+    setCopiedId(itemId);
+    setTimeout(() => setCopiedId(null), 1500);
   }
 
   async function copyAll() {
@@ -36,6 +44,8 @@ export function ResultsTable({ items }: ResultsTableProps) {
       )
       .join("\n");
     await navigator.clipboard.writeText(text);
+    setCopiedId("all");
+    setTimeout(() => setCopiedId(null), 1500);
   }
 
   function exportCsv() {
@@ -62,7 +72,7 @@ export function ResultsTable({ items }: ResultsTableProps) {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `rblxuploads-${Date.now()}.csv`;
+    anchor.download = `studio-vault-${Date.now()}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
@@ -84,113 +94,114 @@ export function ResultsTable({ items }: ResultsTableProps) {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `rblxuploads-${Date.now()}.json`;
+    anchor.download = `studio-vault-${Date.now()}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
 
   return (
     <section className="panel">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-display text-lg text-[var(--text-primary)]">Output</h2>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
-            {completed.length} succeeded · {finished.length - completed.length} failed
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={copyAll}
-            disabled={!completedWithIds.length}
-            className="btn-secondary"
-          >
-            Copy all IDs
-          </button>
-          <button
-            type="button"
-            onClick={exportCsv}
-            disabled={!finished.length}
-            className="btn-secondary"
-          >
-            Export CSV
-          </button>
-          <button
-            type="button"
-            onClick={exportJson}
-            disabled={!finished.length}
-            className="btn-secondary"
-          >
-            Export JSON
-          </button>
-        </div>
-      </div>
+      <SectionHeader
+        title="Results"
+        description="Finished uploads with copyable asset IDs. Completed items are saved to your library automatically."
+        meta={`${completed.length} succeeded · ${finished.length - completed.length} failed`}
+        action={
+          <>
+            <button
+              type="button"
+              onClick={copyAll}
+              disabled={!completedWithIds.length}
+              className="btn-secondary"
+            >
+              <IconCopy size={14} />
+              {copiedId === "all" ? "Copied" : "Copy all IDs"}
+            </button>
+            <button
+              type="button"
+              onClick={exportCsv}
+              disabled={!finished.length}
+              className="btn-secondary"
+            >
+              CSV
+            </button>
+            <button
+              type="button"
+              onClick={exportJson}
+              disabled={!finished.length}
+              className="btn-secondary"
+            >
+              JSON
+            </button>
+          </>
+        }
+      />
 
       {finished.length === 0 ? (
-        <div className="flex min-h-[18rem] items-center justify-center rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface-inset)] p-8 text-center text-sm text-[var(--text-muted)]">
-          Finished uploads land here with copyable asset IDs.
-        </div>
+        <EmptyState
+          icon={<IconCopy size={18} />}
+          title="No results yet"
+          description="Completed uploads will appear here with rbxassetid URIs ready to copy."
+        />
       ) : (
-        <div className="max-h-[24rem] overflow-auto rounded-lg border border-[var(--border-subtle)]">
-          <table className="min-w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border border-[var(--border-subtle)]">
+          <table className="data-table">
             <thead>
-              <tr className="border-b border-[var(--border-subtle)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
-                <th className="px-3 py-2 font-medium">Thumb</th>
-                <th className="px-3 py-2 font-medium">Type</th>
-                <th className="px-3 py-2 font-medium">Name</th>
-                <th className="px-3 py-2 font-medium">ID</th>
-                <th className="px-3 py-2 font-medium">State</th>
-                <th className="px-3 py-2 font-medium" />
+              <tr>
+                <th className="w-12" />
+                <th>Type</th>
+                <th>Name</th>
+                <th>Asset ID</th>
+                <th>Status</th>
+                <th className="w-20" />
               </tr>
             </thead>
             <tbody>
               {finished.map((item) => (
-                <tr
-                  key={item.id}
-                  className="border-b border-[var(--border-subtle)] text-[var(--text-secondary)] last:border-0"
-                >
-                  <td className="px-3 py-2.5">
+                <tr key={item.id}>
+                  <td>
                     {item.assetType === "Image" ? (
                       <img
                         src={item.previewUrl}
-                        alt={item.assetName}
-                        className="h-9 w-9 rounded border border-[var(--border)] object-cover"
+                        alt=""
+                        className="h-8 w-8 rounded border border-[var(--border-subtle)] object-cover"
                       />
-                    ) : item.assetType === "Model" ? (
-                      <div className="flex h-9 w-9 items-center justify-center rounded border border-[var(--border)] bg-[var(--surface)] text-sm text-[var(--text-muted)]">
-                        ◻
-                      </div>
-                    ) : item.assetType === "Mesh" ? (
-                      <div className="flex h-9 w-9 items-center justify-center rounded border border-[var(--border)] bg-[var(--surface)] text-sm text-[var(--text-muted)]">
-                        △
-                      </div>
                     ) : (
-                      <div className="flex h-9 w-9 items-center justify-center rounded border border-[var(--border)] bg-[var(--surface)] text-sm text-[var(--text-muted)]">
-                        ♪
+                      <div className="flex h-8 w-8 items-center justify-center rounded border border-[var(--border-subtle)] bg-[var(--surface-inset)] text-[var(--text-muted)]">
+                        {item.assetType === "Audio" ? (
+                          <IconAudio size={14} />
+                        ) : item.assetType === "Model" || item.assetType === "Mesh" ? (
+                          <IconModel size={14} />
+                        ) : (
+                          <IconImage size={14} />
+                        )}
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-2.5">{item.assetType}</td>
-                  <td className="px-3 py-2.5 text-[var(--text-primary)]">{item.assetName}</td>
-                  <td className="px-3 py-2.5 font-mono text-xs">
+                  <td className="text-[var(--text-muted)]">{item.assetType}</td>
+                  <td className="font-medium text-[var(--text-primary)]">{item.assetName}</td>
+                  <td className="font-mono text-xs">
                     {item.assetId ? `rbxassetid://${item.assetId}` : "—"}
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td>
                     {item.status === "complete" ? (
                       <span className="status-chip status-complete">Done</span>
                     ) : (
                       <span className="status-chip status-failed">Failed</span>
                     )}
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td>
                     <button
                       type="button"
-                      onClick={() => copyOne(item.assetId)}
+                      onClick={() => copyOne(item.assetId, item.id)}
                       disabled={!item.assetId}
-                      className="btn-secondary px-2 py-1 text-xs"
+                      className="btn-ghost p-1.5"
+                      aria-label="Copy asset ID"
                     >
-                      Copy
+                      {copiedId === item.id ? (
+                        <span className="text-[11px] text-[var(--success-text)]">✓</span>
+                      ) : (
+                        <IconCopy size={14} />
+                      )}
                     </button>
                   </td>
                 </tr>

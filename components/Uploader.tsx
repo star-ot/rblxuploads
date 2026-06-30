@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { IconUpload } from "@/components/ui/Icon";
 
 interface UploaderProps {
   disabled?: boolean;
@@ -20,20 +22,27 @@ export function Uploader({ disabled = false, onFilesAdded }: UploaderProps) {
   }
 
   return (
-    <section className="panel h-full">
-      <div className="mb-4">
-        <h2 className="font-display text-lg text-[var(--text-primary)]">Add assets</h2>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">
-          Images, audio, models, and meshes: PNG, JPG, JPEG, WEBP, MP3, OGG, WAV, FLAC, FBX, GLTF, GLB, RBXM, RBXMX, MESH.
-        </p>
-      </div>
+    <section className="panel">
+      <SectionHeader
+        title="Add to queue"
+        description="Drop images, audio, models, or meshes. Display names are formatted automatically — edit before uploading."
+      />
 
       <div
         className={[
           "drop-zone",
           dragActive ? "drop-zone-active" : "",
-          disabled ? "cursor-not-allowed opacity-55" : "cursor-pointer",
+          disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
         ].join(" ")}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-label="Add files to upload queue"
+        onKeyDown={(event) => {
+          if (!disabled && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
         onDragOver={(event) => {
           event.preventDefault();
           if (!disabled) {
@@ -56,22 +65,25 @@ export function Uploader({ disabled = false, onFilesAdded }: UploaderProps) {
           }
         }}
       >
-        <p className="text-sm text-[var(--text-secondary)]">
-          {dragActive ? "Release to queue files" : "Drag files here"}
+        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--surface-hover)] text-[var(--text-muted)]">
+          <IconUpload size={20} />
+        </div>
+        <p className="text-sm font-medium text-[var(--text-primary)]">
+          {dragActive ? "Release to add" : "Drop files here"}
         </p>
-        <p className="mt-1 font-mono text-[11px] text-[var(--text-muted)]">
-          or browse manually
+        <p className="mt-1 caption">
+          PNG, JPG, WEBP · MP3, OGG, WAV, FLAC · FBX, GLTF, RBXM, MESH
         </p>
         <button
           type="button"
-          className="btn-secondary mt-4"
+          className="btn-secondary mt-5"
           disabled={disabled}
           onClick={(event) => {
             event.stopPropagation();
             inputRef.current?.click();
           }}
         >
-          Choose files
+          Browse files
         </button>
       </div>
 

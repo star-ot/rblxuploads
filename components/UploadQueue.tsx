@@ -2,6 +2,9 @@
 
 import type { UploadQueueItem } from "@/lib/types";
 import { AssetCard } from "@/components/AssetCard";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { IconQueue } from "@/components/ui/Icon";
 
 interface UploadQueueProps {
   items: UploadQueueItem[];
@@ -33,60 +36,75 @@ export function UploadQueue({
   const waitingCount = items.filter((item) => item.status === "waiting").length;
 
   return (
-    <section className="panel h-full">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-display text-lg text-[var(--text-primary)]">Queue</h2>
-          <p className="mt-1 font-mono text-xs text-[var(--text-muted)]">
-            {completedCount}/{total} finished
+    <section className="panel flex flex-col">
+      <SectionHeader
+        title="Upload queue"
+        meta={
+          <>
+            {completedCount}/{total} complete
             {waitingCount > 0 ? ` · ${waitingCount} waiting` : ""}
-            {etaLabel ? ` · ~${etaLabel} left` : ""}
-          </p>
-        </div>
+            {etaLabel ? ` · ~${etaLabel} remaining` : ""}
+          </>
+        }
+        action={
+          <>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={onStart}
+              disabled={isRunning || waitingCount === 0}
+            >
+              {isRunning ? "Uploading…" : "Start upload"}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={onRetryFailed}
+              disabled={isRunning || !hasFailed}
+            >
+              Retry failed
+            </button>
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={onClearFinished}
+              disabled={isRunning}
+            >
+              Clear finished
+            </button>
+          </>
+        }
+      />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={onStart}
-            disabled={isRunning || waitingCount === 0}
-          >
-            {isRunning ? "Running…" : "Start batch"}
-          </button>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={onRetryFailed}
-            disabled={isRunning || !hasFailed}
-          >
-            Retry errors
-          </button>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={onClearFinished}
-            disabled={isRunning}
-          >
-            Clear done
-          </button>
+      {total > 0 ? (
+        <div className="mb-4">
+          <div className="mb-1.5 flex items-center justify-between font-mono text-[11px] text-[var(--text-faint)]">
+            <span>Batch progress</span>
+            <span>{progressPercent}%</span>
+          </div>
+          <div className="progress-track">
+            <div
+              className={["progress-fill", isRunning ? "progress-fill-animated" : ""].join(
+                " ",
+              )}
+              style={{ width: `${progressPercent}%` }}
+              role="progressbar"
+              aria-valuenow={progressPercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            />
+          </div>
         </div>
-      </div>
-
-      <div className="progress-track mb-4">
-        <div
-          className={["progress-fill", isRunning ? "progress-fill-animated" : ""].join(
-            " ",
-          )}
-          style={{ width: `${progressPercent}%` }}
-        />
-      </div>
+      ) : null}
 
       {items.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface-inset)] p-8 text-center text-sm text-[var(--text-muted)]">
-          Queue is empty — add assets on the left.
-        </div>
+        <EmptyState
+          icon={<IconQueue size={18} />}
+          title="Queue is empty"
+          description="Add files from the panel on the left. They'll appear here ready to upload."
+        />
       ) : (
-        <div className="max-h-[34rem] space-y-2 overflow-y-auto pr-1">
+        <div className="max-h-[36rem] flex-1 space-y-2 overflow-y-auto pr-1">
           {items.map((item) => (
             <AssetCard
               key={item.id}

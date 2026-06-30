@@ -74,7 +74,7 @@ export async function createRobloxAsset(
     JSON.stringify({
       assetType: input.assetType,
       displayName: input.displayName,
-      description: `Uploaded via StarVSK RblxUploads: ${input.displayName}`,
+      description: `Uploaded via Studio Vault: ${input.displayName}`,
       creationContext: {
         creator:
           input.creatorType === "group"

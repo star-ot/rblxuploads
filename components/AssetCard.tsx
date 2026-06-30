@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import type { UploadQueueItem } from "@/lib/types";
+import { IconAudio, IconImage, IconModel, IconX } from "@/components/ui/Icon";
 
 interface AssetCardProps {
   item: UploadQueueItem;
@@ -26,6 +27,31 @@ const STATUS_CLASS: Record<UploadQueueItem["status"], string> = {
   failed: "status-failed",
 };
 
+function AssetThumbnail({ item }: { item: UploadQueueItem }) {
+  if (item.assetType === "Image") {
+    return (
+      <img
+        src={item.previewUrl}
+        alt=""
+        className="h-12 w-12 rounded-md border border-[var(--border-subtle)] object-cover"
+      />
+    );
+  }
+
+  const Icon =
+    item.assetType === "Audio"
+      ? IconAudio
+      : item.assetType === "Model" || item.assetType === "Mesh"
+        ? IconModel
+        : IconImage;
+
+  return (
+    <div className="flex h-12 w-12 items-center justify-center rounded-md border border-[var(--border-subtle)] bg-[var(--surface-inset)] text-[var(--text-muted)]">
+      <Icon size={18} />
+    </div>
+  );
+}
+
 export function AssetCard({
   item,
   disabled = false,
@@ -34,47 +60,24 @@ export function AssetCard({
 }: AssetCardProps) {
   const isLocked =
     item.status === "uploading" || item.status === "processing";
-  const isImageAsset = item.assetType === "Image";
-  const isModelAsset = item.assetType === "Model";
-  const isMeshAsset = item.assetType === "Mesh";
 
   return (
-    <article className="grid gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 sm:grid-cols-[56px_1fr_auto] sm:items-start">
-      {isImageAsset ? (
-        <img
-          src={item.previewUrl}
-          alt={item.assetName}
-          className="h-14 w-14 rounded-md border border-[var(--border)] object-cover"
-        />
-      ) : isModelAsset ? (
-        <div className="flex h-14 w-14 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] text-xl text-[var(--text-muted)]">
-          ◻
-        </div>
-      ) : isMeshAsset ? (
-        <div className="flex h-14 w-14 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] text-xl text-[var(--text-muted)]">
-          △
-        </div>
-      ) : (
-        <div className="flex h-14 w-14 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface)] text-xl text-[var(--text-muted)]">
-          ♪
-        </div>
-      )}
+    <article className="surface-interactive group grid gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 sm:grid-cols-[48px_1fr_auto] sm:items-start">
+      <AssetThumbnail item={item} />
 
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="min-w-0 space-y-2.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className={`status-chip ${STATUS_CLASS[item.status]}`}>
             {STATUS_LABELS[item.status]}
           </span>
           <span className="status-chip status-waiting">{item.assetType}</span>
-          <span className="truncate font-mono text-[11px] text-[var(--text-muted)]">
+          <span className="truncate font-mono text-[11px] text-[var(--text-faint)]">
             {item.fileName}
           </span>
         </div>
 
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
-            Asset name
-          </span>
+          <span className="label">Display name</span>
           <input
             value={item.assetName}
             onChange={(event) => onNameChange(item.id, event.target.value)}
@@ -83,25 +86,28 @@ export function AssetCard({
           />
         </label>
 
-        <div className="space-y-1">
-          <div className="progress-track">
-            <div
-              className={[
-                "progress-fill",
-                isLocked ? "progress-fill-animated" : "",
-              ].join(" ")}
-              style={{ width: `${Math.min(100, Math.max(0, item.progress))}%` }}
-            />
+        {(isLocked || item.progress > 0) && item.status !== "complete" ? (
+          <div className="space-y-1">
+            <div className="progress-track">
+              <div
+                className={[
+                  "progress-fill",
+                  isLocked ? "progress-fill-animated" : "",
+                ].join(" ")}
+                style={{ width: `${Math.min(100, Math.max(0, item.progress))}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between font-mono text-[10px] text-[var(--text-faint)]">
+              <span>{item.progress}%</span>
+              {item.attempt > 0 ? <span>Attempt {item.attempt}</span> : null}
+            </div>
           </div>
-          <div className="flex items-center justify-between font-mono text-[10px] text-[var(--text-muted)]">
-            <span>{item.progress}%</span>
-            <span>try {item.attempt}</span>
-          </div>
-        </div>
+        ) : null}
 
         {item.error ? (
           <p className="text-xs leading-relaxed text-[var(--danger-text)]">{item.error}</p>
         ) : null}
+
         {item.assetId ? (
           <p className="font-mono text-[11px] text-[var(--success-text)]">
             rbxassetid://{item.assetId}
@@ -111,11 +117,12 @@ export function AssetCard({
 
       <button
         type="button"
-        className="btn-secondary self-start px-2 py-1 text-xs"
+        className="btn-ghost self-start p-1.5 opacity-60 group-hover:opacity-100"
         onClick={() => onRemove(item.id)}
         disabled={disabled || isLocked}
+        aria-label={`Remove ${item.fileName}`}
       >
-        Remove
+        <IconX size={14} />
       </button>
     </article>
   );

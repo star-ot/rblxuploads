@@ -1,11 +1,17 @@
 import {
   IconFolder,
   IconGrid,
+  IconModel,
   IconQueue,
   IconSearch,
   IconTag,
   IconUpload,
 } from "@/components/ui/Icon";
+import {
+  LandingCopyDemo,
+  LandingNameFormatterDemo,
+  LandingQueueStatusDemo,
+} from "@/components/landing/LandingWorkflowDemos";
 
 const FEATURES = [
   {
@@ -24,7 +30,7 @@ const FEATURES = [
     icon: IconUpload,
     title: "Bulk upload with confidence",
     description:
-      "Queue dozens of files, set display names, and watch each one move from queued to done.",
+      "Queue images, audio, meshes, and model packages (FBX, RBXM, GLTF). Watch each file move from queued to done.",
   },
   {
     icon: IconTag,
@@ -39,10 +45,10 @@ const FEATURES = [
       "Per-item progress, retry logic, and clear error messages. You always know what happened.",
   },
   {
-    icon: IconFolder,
-    title: "Built for serious Roblox development",
+    icon: IconModel,
+    title: "Update model packages in place",
     description:
-      "Model package updates, portable export, team sharing via JSON. For studios shipping experiences.",
+      "Models upload as Roblox packages. Push a new FBX to an existing asset ID via Open Cloud PATCH — no broken references in your game.",
   },
 ] as const;
 
@@ -73,7 +79,11 @@ export function Features() {
             </h2>
             <p className="mt-3 text-[var(--text-secondary)]">
               Creator Dashboard was built for publishing. Studio Vault was built for
-              the daily work of managing hundreds of assets across experiences.
+              the daily work of managing hundreds of assets across experiences.{" "}
+              <a href="#show-tell" className="text-[var(--accent-hover)] underline-offset-2 hover:underline">
+                Try the live library search above
+              </a>
+              .
             </p>
           </div>
 
@@ -90,6 +100,12 @@ export function Features() {
               </div>
             ))}
           </div>
+
+          <div className="mt-10 grid gap-4 lg:grid-cols-3">
+            <LandingCopyDemo />
+            <LandingNameFormatterDemo />
+            <LandingQueueStatusDemo />
+          </div>
         </div>
       </section>
 
@@ -100,6 +116,16 @@ export function Features() {
             <h2 className="font-display text-2xl font-medium tracking-tight text-[var(--text-primary)] sm:text-3xl">
               Every asset in one place.
             </h2>
+            <p className="mt-3 text-[var(--text-secondary)]">
+              Including model packages you can overwrite without new IDs.{" "}
+              <a
+                href="#model-packages"
+                className="text-[var(--accent-hover)] underline-offset-2 hover:underline"
+              >
+                See the package update workflow
+              </a>
+              .
+            </p>
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

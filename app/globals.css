@@ -484,6 +484,79 @@ body {
 
 /* ─── Landing hero composition ─── */
 
+.hero-stage {
+  height: 23rem;
+  overflow: hidden;
+}
+
+@media (min-width: 640px) {
+  .hero-stage {
+    height: 25rem;
+  }
+}
+
+.hero-step-layer {
+  overflow: hidden;
+}
+
+.hero-step-shell {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hero-step-header {
+  flex-shrink: 0;
+}
+
+.hero-step-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  gap: 0.75rem;
+}
+
+.hero-step-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.hero-clipboard {
+  max-height: 4.5rem;
+  overflow: auto;
+}
+
+.hero-lua-panel {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hero-lua-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.hero-lua-scroll pre,
+.hero-lua-scroll code {
+  white-space: pre !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+}
+
+.hero-lua-scroll pre {
+  margin: 0 !important;
+  min-width: min-content;
+}
+
 .hero-grid-bg {
   background-image:
     linear-gradient(var(--border-subtle) 1px, transparent 1px),
@@ -516,6 +589,51 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .hero-fragment {
+    animation: none;
+  }
+
+  .hero-pulse-dot {
+    animation: none;
+  }
+}
+
+.hero-pulse-dot {
+  animation: hero-pulse-dot 1.4s ease-in-out infinite;
+}
+
+@keyframes hero-pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+}
+
+.hero-copy-btn-pressed {
+  background: var(--accent-muted) !important;
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--text-primary) 12%, transparent);
+}
+
+.hero-lua-cursor {
+  animation: hero-lua-cursor 0.9s step-end infinite;
+}
+
+@keyframes hero-lua-cursor {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-lua-cursor {
     animation: none;
   }
 }

@@ -23,6 +23,9 @@ export function LandingNav() {
         </Link>
 
         <nav className="hidden items-center gap-1 sm:flex" aria-label="Primary">
+          <a href="#show-tell" className="btn-ghost text-[13px]">
+            Demo
+          </a>
           <a href="#features" className="btn-ghost text-[13px]">
             Features
           </a>

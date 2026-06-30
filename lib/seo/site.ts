@@ -6,7 +6,7 @@ export const siteConfig = {
   url: (process.env.NEXT_PUBLIC_SITE_URL ?? DEFAULT_SITE_URL).replace(/\/$/, ""),
   title: "Studio Vault — Roblox Asset Workspace",
   description:
-    "The asset browser Roblox developers always wanted. Browse, organize, and bulk-upload images, audio, models, and meshes via Open Cloud. Local-first. Built for serious Roblox development.",
+    "The asset browser Roblox developers always wanted. Browse, organize, and bulk-upload images, audio, models, and meshes via Open Cloud — including in-place model package updates. Local-first. Built for serious Roblox development.",
   tagline: "Find. Organize. Ship.",
   author: {
     name: "StarVSK",

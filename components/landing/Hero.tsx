@@ -13,22 +13,25 @@ export function Hero() {
               The asset browser Roblox developers always wanted.
             </h1>
             <p className="mt-5 max-w-md text-base leading-relaxed text-[var(--text-secondary)] sm:text-lg">
-              Find. Organize. Ship. Every rbxassetid in one place — with bulk upload,
-              collections, and metadata that actually helps you build.
+              Find. Organize. Ship. Every rbxassetid in one place — bulk upload, model packages you
+              can overwrite in place, and metadata that helps you build.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Link href="/workspace" className="btn-primary px-5 py-2.5 text-[15px]">
                 Open workspace
                 <IconArrowRight size={16} />
               </Link>
-              <a href="#features" className="btn-secondary px-5 py-2.5 text-[15px]">
-                See how it works
+              <a href="#model-packages" className="btn-secondary px-5 py-2.5 text-[15px]">
+                Model package updates
+              </a>
+              <a href="#show-tell" className="btn-ghost px-5 py-2.5 text-[15px]">
+                Try library search
               </a>
             </div>
 
             <p className="mt-6 font-mono text-xs text-[var(--text-faint)]">
-              Local-first · Open Cloud · Images, audio, models, meshes
+              Local-first · Open Cloud · Images, audio, models, meshes · Package PATCH (FBX)
             </p>
           </div>
 

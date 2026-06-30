@@ -3,6 +3,8 @@ import { LandingFooter } from "@/components/landing/LandingFooter";
 import { LandingNav } from "@/components/landing/LandingNav";
 import { Hero } from "@/components/landing/Hero";
 import { Features } from "@/components/landing/Features";
+import { ShowTell } from "@/components/landing/ShowTell";
+import { ModelPackages } from "@/components/landing/ModelPackages";
 import { Faq } from "@/components/landing/Faq";
 import { HomePageJsonLd } from "@/components/seo/JsonLd";
 import { absoluteUrl, siteConfig } from "@/lib/seo/site";
@@ -43,6 +45,8 @@ export default function HomePage() {
       <LandingNav />
       <main className="flex-1">
         <Hero />
+        <ShowTell />
+        <ModelPackages />
         <Features />
         <Faq />
       </main>

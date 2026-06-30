@@ -6,7 +6,6 @@ import {
   bulkUpsertLocalFolders,
   bulkUpsertLocalAssets,
   deleteLocalFolderTree,
-  getRootFolderPath,
   listLocalAssets,
   listLocalFolders,
   normalizeFolderPath,
@@ -17,13 +16,25 @@ import {
 } from "@/lib/local-assets-db";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { LibraryGooeySearch } from "@/components/library/LibraryGooeySearch";
 import {
-  IconChevronDown,
-  IconChevronRight,
+  ALL_FOLDERS_OPTION,
+  LibraryFolderPanel,
+} from "@/components/library/LibraryFolderPanel";
+import {
   IconCopy,
   IconFolder,
   IconSearch,
 } from "@/components/ui/Icon";
+import {
+  buildFolderTree,
+  buildNestedAssetCounts,
+  computeRenamedFolderPath,
+  computeReparentedFolderPath,
+  getFolderAncestors,
+  joinFolderPath,
+  ROOT_FOLDER,
+} from "@/lib/folder-tree";
 import { canUpdateModelPackage } from "@/lib/file-parser";
 import { updateModelPackage } from "@/lib/upload/client";
 import type {
@@ -35,14 +46,6 @@ import type {
 } from "@/lib/types";
 
 type SortKey = "newest" | "oldest" | "name-asc" | "name-desc" | "type";
-const ROOT_FOLDER = getRootFolderPath();
-const ALL_FOLDERS_OPTION = "all";
-
-interface FolderTreeNode {
-  name: string;
-  path: string;
-  children: FolderTreeNode[];
-}
 
 interface AssetLibraryManagerProps {
   items: UploadQueueItem[];
@@ -59,9 +62,6 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
   const [sortKey, setSortKey] = useState<SortKey>("newest");
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
   const [selectedFolder, setSelectedFolder] = useState(ROOT_FOLDER);
-  const [newFolderParent, setNewFolderParent] = useState(ROOT_FOLDER);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [renameFolderPath, setRenameFolderPath] = useState(ROOT_FOLDER);
   const [bulkTagInput, setBulkTagInput] = useState("");
   const [managerStatus, setManagerStatus] = useState("");
   const [targetModelAssetId, setTargetModelAssetId] = useState("");
@@ -182,15 +182,7 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
 
   const folderTree = useMemo(() => buildFolderTree(folderPaths), [folderPaths]);
 
-  const nestedFolderAssetCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const asset of assets) {
-      for (const ancestor of getFolderAncestors(asset.folderPath)) {
-        counts.set(ancestor, (counts.get(ancestor) ?? 0) + 1);
-      }
-    }
-    return counts;
-  }, [assets]);
+  const nestedFolderAssetCounts = useMemo(() => buildNestedAssetCounts(assets), [assets]);
 
   async function refreshLibrary() {
     const [nextAssets, nextFolders] = await Promise.all([
@@ -201,21 +193,15 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
     setFolders(nextFolders);
   }
 
-  async function createFolder(parentOverride?: string) {
-    if (!newFolderName.trim()) {
+  async function createFolder(parentPath: string, name: string) {
+    if (!name.trim()) {
       setManagerStatus("Enter a folder name first.");
       return;
     }
 
-    const hasOverride = parentOverride !== undefined;
-    const parent = hasOverride ? parentOverride : newFolderParent;
-    const normalized = normalizeFolderPath(
-      parent.trim() ? `${parent}/${newFolderName}` : newFolderName,
-    );
+    const normalized = joinFolderPath(parentPath, name);
     await upsertLocalFolder(normalized);
-    setNewFolderName("");
     setSelectedFolder(normalized);
-    setRenameFolderPath(normalized);
     setFolderFilter(normalized);
     setExpandedFolderPaths((current) => {
       const next = new Set(current);
@@ -225,7 +211,72 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
       return next;
     });
     await refreshLibrary();
-    setManagerStatus(`Folder ready: ${normalized}`);
+    setManagerStatus(`Created folder: ${normalized}`);
+  }
+
+  async function renameFolder(folderPath: string, newName: string) {
+    const source = normalizeFolderPath(folderPath);
+    const target = computeRenamedFolderPath(source, newName);
+
+    if (source === ROOT_FOLDER) {
+      setManagerStatus("The root folder cannot be renamed.");
+      return;
+    }
+    if (source === target) {
+      return;
+    }
+
+    try {
+      const result = await renameLocalFolderTree(source, target);
+      await refreshLibrary();
+      setSelectedFolder(target);
+      setFolderFilter(target);
+      setExpandedFolderPaths((current) => {
+        const next = new Set(current);
+        for (const ancestor of getFolderAncestors(target)) {
+          next.add(ancestor);
+        }
+        return next;
+      });
+      setManagerStatus(
+        `Renamed ${result.renamedFolders} folders and moved ${result.movedAssets} assets to ${target}.`,
+      );
+    } catch (error) {
+      setManagerStatus(error instanceof Error ? error.message : "Folder rename failed.");
+    }
+  }
+
+  async function reparentFolder(folderPath: string, newParentPath: string) {
+    const source = normalizeFolderPath(folderPath);
+    const target = computeReparentedFolderPath(source, newParentPath);
+
+    if (source === ROOT_FOLDER) {
+      setManagerStatus("The root folder cannot be moved.");
+      return;
+    }
+    if (source === target) {
+      setManagerStatus("Folder is already in that location.");
+      return;
+    }
+
+    try {
+      const result = await renameLocalFolderTree(source, target);
+      await refreshLibrary();
+      setSelectedFolder(target);
+      setFolderFilter(target);
+      setExpandedFolderPaths((current) => {
+        const next = new Set(current);
+        for (const ancestor of getFolderAncestors(target)) {
+          next.add(ancestor);
+        }
+        return next;
+      });
+      setManagerStatus(
+        `Moved folder tree (${result.renamedFolders} folders, ${result.movedAssets} assets) to ${target}.`,
+      );
+    } catch (error) {
+      setManagerStatus(error instanceof Error ? error.message : "Folder move failed.");
+    }
   }
 
   function toggleFolderExpansion(folderPath: string) {
@@ -243,8 +294,6 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
   function selectFolder(folderPath: string) {
     setFolderFilter(folderPath);
     setSelectedFolder(folderPath);
-    setNewFolderParent(folderPath);
-    setRenameFolderPath(folderPath);
     setExpandedFolderPaths((current) => {
       const next = new Set(current);
       for (const ancestor of getFolderAncestors(folderPath)) {
@@ -254,48 +303,23 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
     });
   }
 
-  async function renameSelectedFolder() {
-    const source = normalizeFolderPath(selectedFolder);
-    const target = normalizeFolderPath(renameFolderPath);
-
-    if (source === ROOT_FOLDER) {
-      setManagerStatus("Select a subfolder to rename.");
-      return;
-    }
-    if (!renameFolderPath.trim()) {
-      setManagerStatus("Enter a target folder path first.");
-      return;
-    }
-    if (source === target) {
-      setManagerStatus("Folder path did not change.");
-      return;
-    }
-
-    try {
-      const result = await renameLocalFolderTree(source, target);
-      await refreshLibrary();
-      setSelectedFolder(target);
-      setFolderFilter(target);
-      setRenameFolderPath(target);
-      setExpandedFolderPaths((current) => {
-        const next = new Set(current);
-        for (const ancestor of getFolderAncestors(target)) {
-          next.add(ancestor);
-        }
-        return next;
-      });
-      setManagerStatus(
-        `Renamed ${result.renamedFolders} folders and moved ${result.movedAssets} assets to ${target}.`,
-      );
-    } catch (error) {
-      setManagerStatus(error instanceof Error ? error.message : "Folder rename failed.");
-    }
+  function selectAllAssets() {
+    setFolderFilter(ALL_FOLDERS_OPTION);
+    setSelectedFolder(ROOT_FOLDER);
   }
-
-  async function deleteSelectedFolder() {
-    const target = normalizeFolderPath(selectedFolder);
+  async function deleteFolder(folderPath: string) {
+    const target = normalizeFolderPath(folderPath);
     if (target === ROOT_FOLDER) {
       setManagerStatus("Root folder cannot be deleted.");
+      return;
+    }
+
+    const folderName = target.split("/").pop() ?? target;
+    if (
+      !window.confirm(
+        `Delete "${folderName}" and all subfolders? Assets inside will move to ${ROOT_FOLDER}.`,
+      )
+    ) {
       return;
     }
 
@@ -303,7 +327,6 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
       const result = await deleteLocalFolderTree(target);
       await refreshLibrary();
       setSelectedFolder(ROOT_FOLDER);
-      setRenameFolderPath(ROOT_FOLDER);
       setFolderFilter(ALL_FOLDERS_OPTION);
       setManagerStatus(
         `Deleted ${result.deletedFolders} folders. Moved ${result.movedAssets} assets to ${result.movedTo}.`,
@@ -320,26 +343,31 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
     setSortKey("newest");
     setFolderFilter(ALL_FOLDERS_OPTION);
     setSelectedFolder(ROOT_FOLDER);
-    setRenameFolderPath(ROOT_FOLDER);
   }
 
-  async function moveSelected() {
-    if (!selectedAssetIds.size) {
+  async function moveAssetsToFolder(folderPath: string, assetIds?: string[]) {
+    const ids = assetIds ?? Array.from(selectedAssetIds);
+    if (!ids.length) {
       setManagerStatus("Select assets to move first.");
       return;
     }
 
-    const ids = selectedAssetIds;
+    const idSet = new Set(ids);
     const updates = assets
-      .filter((asset) => ids.has(asset.id))
+      .filter((asset) => idSet.has(asset.id))
       .map((asset) => ({
         ...asset,
-        folderPath: selectedFolder,
+        folderPath: normalizeFolderPath(folderPath),
         updatedAt: Date.now(),
       }));
+
+    if (!updates.length) {
+      return;
+    }
+
     await bulkUpsertLocalAssets(updates);
     setSelectedAssetIds(new Set());
-    setManagerStatus(`Moved ${updates.length} assets to ${selectedFolder}.`);
+    setManagerStatus(`Moved ${updates.length} assets to ${normalizeFolderPath(folderPath)}.`);
     await refreshLibrary();
   }
 
@@ -580,22 +608,18 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
     <section className="panel">
       <SectionHeader
         title="Asset library"
-        description="Your local collection. Folders, tags, search, and portable export — stored in IndexedDB on your machine."
+        description="Folders, tags, search, drag-to-move, and portable export — stored in IndexedDB on your machine."
         meta={`${assets.length} assets · ${folders.length} folders`}
       />
 
       <div className="grid gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="relative sm:col-span-2">
-          <IconSearch
-            size={14}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-faint)]"
-          />
-          <input
-            className="field-input pl-9"
-            placeholder="Search name, ID, folder, tags…"
+        <div className="sm:col-span-2">
+          <LibraryGooeySearch
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            aria-label="Search assets"
+            onValueChange={setSearch}
+            collapsedWidth={220}
+            expandedWidth={360}
+            expandedOffset={50}
           />
         </div>
         <input
@@ -636,89 +660,22 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
         </button>
       </div>
 
-      <div className="mt-3 grid gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 md:grid-cols-2 xl:grid-cols-4">
-        <div className="flex flex-col gap-1 md:col-span-2 xl:col-span-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="label">New collection</p>
-            <p className="font-mono text-[11px] text-[var(--text-faint)]">
-              {normalizeFolderPath(`${newFolderParent}/${newFolderName || "…"}`)}
-            </p>
-          </div>
-          <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
-            <select
-              className="field-input"
-              value={newFolderParent}
-              onChange={(event) => setNewFolderParent(event.target.value)}
-            >
-              {folderPaths.map((folder) => (
-                <option key={folder} value={folder}>
-                  Parent: {folder}
-                </option>
-              ))}
-            </select>
-            <input
-              className="field-input"
-              placeholder="Folder name"
-              value={newFolderName}
-              onChange={(event) => setNewFolderName(event.target.value)}
-            />
-            <button type="button" className="btn-secondary" onClick={() => createFolder()}>
-              Create folder
-            </button>
-            <button
-              type="button"
-              className="btn-ghost"
-              onClick={() => createFolder("")}
-            >
-              At root
-            </button>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <input
-            className="field-input"
-            placeholder="Rename selected folder path"
-            value={renameFolderPath}
-            onChange={(event) => setRenameFolderPath(event.target.value)}
-            disabled={selectedFolder === ROOT_FOLDER}
-          />
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={renameSelectedFolder}
-            disabled={selectedFolder === ROOT_FOLDER}
-          >
-            Rename
-          </button>
-        </div>
-        <select
-          className="field-input"
-          value={selectedFolder}
-          onChange={(event) => selectFolder(event.target.value)}
-        >
-          {folderPaths.map((folder) => (
-            <option key={folder} value={folder}>
-              Move target: {folder}
-            </option>
-          ))}
-        </select>
-        <div className="flex gap-2">
-          <input
-            className="field-input"
-            placeholder="Bulk tags (comma separated)"
-            value={bulkTagInput}
-            onChange={(event) => setBulkTagInput(event.target.value)}
-          />
-          <button type="button" className="btn-secondary" onClick={applyBulkTags}>
-            Tag
-          </button>
-        </div>
+      <div className="mt-3 grid gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+        <input
+          className="field-input sm:col-span-2 lg:col-span-1"
+          placeholder="Bulk tags (comma separated)"
+          value={bulkTagInput}
+          onChange={(event) => setBulkTagInput(event.target.value)}
+        />
+        <button type="button" className="btn-secondary" onClick={applyBulkTags}>
+          Tag selected ({selectedCount})
+        </button>
+        <button type="button" className="btn-secondary" onClick={deleteSelected}>
+          Delete selected ({selectedCount})
+        </button>
       </div>
 
-      <div className="mt-3 grid gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3 md:grid-cols-2 xl:grid-cols-4">
-        <button type="button" className="btn-secondary" onClick={moveSelected}>
-          Move selected ({selectedCount})
-        </button>
+      <div className="mt-3 flex flex-wrap gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3">
         <button type="button" className="btn-secondary" onClick={() => exportSelection("json")}>
           Export selected JSON
         </button>
@@ -746,17 +703,6 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
         >
           Import JSON/CSV
         </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={deleteSelectedFolder}
-          disabled={selectedFolder === ROOT_FOLDER}
-        >
-          Delete folder subtree
-        </button>
-        <button type="button" className="btn-secondary" onClick={deleteSelected}>
-          Delete selected
-        </button>
       </div>
       {managerStatus ? (
         <p className="alert alert-info mt-3 text-[13px]" role="status">{managerStatus}</p>
@@ -776,39 +722,26 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
         }}
       />
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
-        <aside className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-2">
-          <p className="label px-2 pb-2">Collections</p>
-          <button
-            type="button"
-            className={`mb-1 flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-[13px] transition-colors ${
-              folderFilter === ALL_FOLDERS_OPTION
-                ? "bg-[var(--accent-muted)] text-[var(--text-primary)]"
-                : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-            }`}
-            onClick={() => setFolderFilter(ALL_FOLDERS_OPTION)}
-          >
-            <span className="flex items-center gap-2">
-              <IconFolder size={14} className="shrink-0 opacity-60" />
-              All assets
-            </span>
-            <span className="font-mono text-[11px] text-[var(--text-faint)]">{assets.length}</span>
-          </button>
-          <div className="max-h-[24rem] overflow-y-auto pr-1">
-            {folderTree.map((node) => (
-              <FolderTreeItem
-                key={node.path}
-                node={node}
-                depth={0}
-                selectedFolder={folderFilter}
-                expandedPaths={expandedFolderPaths}
-                nestedAssetCounts={nestedFolderAssetCounts}
-                onSelect={selectFolder}
-                onToggleExpand={toggleFolderExpansion}
-              />
-            ))}
-          </div>
-        </aside>
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+        <LibraryFolderPanel
+          folderTree={folderTree}
+          folderPaths={folderPaths}
+          totalAssetCount={assets.length}
+          nestedAssetCounts={nestedFolderAssetCounts}
+          selectedFolder={selectedFolder}
+          folderFilter={folderFilter}
+          expandedPaths={expandedFolderPaths}
+          selectedAssetCount={selectedCount}
+          onSelectAllAssets={selectAllAssets}
+          onSelectFolder={selectFolder}
+          onToggleExpand={toggleFolderExpansion}
+          onCreateFolder={createFolder}
+          onRenameFolder={renameFolder}
+          onReparentFolder={reparentFolder}
+          onDeleteFolder={deleteFolder}
+          onMoveAssetsToFolder={moveAssetsToFolder}
+          onDropAssets={(folderPath, assetIds) => moveAssetsToFolder(folderPath, assetIds)}
+        />
 
         <div className="overflow-x-auto rounded-lg border border-[var(--border-subtle)]">
           {filteredAssets.length === 0 ? (
@@ -852,7 +785,21 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
               </thead>
               <tbody>
                 {filteredAssets.map((asset) => (
-                  <tr key={asset.id}>
+                  <tr
+                    key={asset.id}
+                    draggable
+                    className="cursor-grab active:cursor-grabbing"
+                    onDragStart={(event) => {
+                      const ids = selectedAssetIds.has(asset.id)
+                        ? Array.from(selectedAssetIds)
+                        : [asset.id];
+                      event.dataTransfer.setData(
+                        "application/x-rblxuploads-assets",
+                        JSON.stringify(ids),
+                      );
+                      event.dataTransfer.effectAllowed = "move";
+                    }}
+                  >
                     <td>
                       <input
                         type="checkbox"
@@ -956,144 +903,6 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
       </div>
     </section>
   );
-}
-
-interface FolderTreeItemProps {
-  node: FolderTreeNode;
-  depth: number;
-  selectedFolder: string;
-  expandedPaths: Set<string>;
-  nestedAssetCounts: Map<string, number>;
-  onSelect: (folderPath: string) => void;
-  onToggleExpand: (folderPath: string) => void;
-}
-
-function FolderTreeItem({
-  node,
-  depth,
-  selectedFolder,
-  expandedPaths,
-  nestedAssetCounts,
-  onSelect,
-  onToggleExpand,
-}: FolderTreeItemProps) {
-  const hasChildren = node.children.length > 0;
-  const isExpanded = expandedPaths.has(node.path);
-  const isSelected =
-    selectedFolder === node.path || selectedFolder.startsWith(`${node.path}/`);
-
-  return (
-    <div>
-      <div
-        className={`mb-0.5 flex items-center gap-0.5 rounded-md pr-1 ${
-          isSelected
-            ? "bg-[var(--accent-muted)] text-[var(--text-primary)]"
-            : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-        }`}
-      >
-        <button
-          type="button"
-          className={`flex h-7 w-6 shrink-0 items-center justify-center ${hasChildren ? "text-[var(--text-muted)]" : "opacity-0"}`}
-          onClick={() => {
-            if (hasChildren) {
-              onToggleExpand(node.path);
-            }
-          }}
-          aria-label={isExpanded ? "Collapse folder" : "Expand folder"}
-        >
-          {isExpanded ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
-        </button>
-        <button
-          type="button"
-          className="flex min-h-7 flex-1 items-center justify-between gap-2 rounded py-1.5 text-left text-[13px]"
-          style={{ paddingLeft: `${depth * 0.5}rem` }}
-          onClick={() => onSelect(node.path)}
-        >
-          <span className="flex min-w-0 items-center gap-1.5 truncate">
-            <IconFolder size={13} className="shrink-0 opacity-50" />
-            {node.name}
-          </span>
-          <span className="shrink-0 font-mono text-[10px] text-[var(--text-faint)]">
-            {nestedAssetCounts.get(node.path) ?? 0}
-          </span>
-        </button>
-      </div>
-      {hasChildren && isExpanded ? (
-        <div>
-          {node.children.map((child) => (
-            <FolderTreeItem
-              key={child.path}
-              node={child}
-              depth={depth + 1}
-              selectedFolder={selectedFolder}
-              expandedPaths={expandedPaths}
-              nestedAssetCounts={nestedAssetCounts}
-              onSelect={onSelect}
-              onToggleExpand={onToggleExpand}
-            />
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function buildFolderTree(folderPaths: string[]): FolderTreeNode[] {
-  const byPath = new Map<string, FolderTreeNode>();
-
-  const getOrCreate = (path: string): FolderTreeNode => {
-    const existing = byPath.get(path);
-    if (existing) {
-      return existing;
-    }
-    const segments = path.split("/");
-    const node: FolderTreeNode = {
-      name: segments[segments.length - 1] || ROOT_FOLDER,
-      path,
-      children: [],
-    };
-    byPath.set(path, node);
-    return node;
-  };
-
-  for (const path of folderPaths) {
-    const normalized = normalizeFolderPath(path);
-    const parts = normalized.split("/");
-    let current = parts[0];
-    getOrCreate(current);
-
-    for (let i = 1; i < parts.length; i += 1) {
-      const parent = current;
-      current = `${current}/${parts[i]}`;
-      const parentNode = getOrCreate(parent);
-      const currentNode = getOrCreate(current);
-      if (!parentNode.children.some((child) => child.path === currentNode.path)) {
-        parentNode.children.push(currentNode);
-      }
-    }
-  }
-
-  const sortChildren = (node: FolderTreeNode) => {
-    node.children.sort((a, b) => a.name.localeCompare(b.name));
-    node.children.forEach(sortChildren);
-  };
-
-  const roots = Array.from(byPath.values())
-    .filter((node) => !node.path.includes("/"))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  roots.forEach(sortChildren);
-  return roots;
-}
-
-function getFolderAncestors(folderPath: string): string[] {
-  const normalized = normalizeFolderPath(folderPath);
-  const parts = normalized.split("/");
-  const ancestors: string[] = [];
-  for (let i = 0; i < parts.length; i += 1) {
-    ancestors.push(parts.slice(0, i + 1).join("/"));
-  }
-  return ancestors;
 }
 
 function parseJsonImport(text: string): {

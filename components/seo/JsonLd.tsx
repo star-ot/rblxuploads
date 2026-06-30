@@ -100,4 +100,9 @@ export const FAQ_ITEMS = [
     answer:
       "Studio Vault supports Image, Audio, Model, and Mesh assets via Roblox Open Cloud, including PNG, JPG, WEBP, MP3, OGG, WAV, FLAC, FBX, GLTF, RBXM, RBXMX, and MESH files.",
   },
+  {
+    question: "How do model uploads and package updates work?",
+    answer:
+      "FBX, RBXM, GLTF, and GLB files upload as Roblox Model assets (packages) through Open Cloud. After upload, you can replace a package's content by targeting its asset ID in the library and sending a new FBX file — the rbxassetid stays the same so scripts and instances keep working.",
+  },
 ] as const;

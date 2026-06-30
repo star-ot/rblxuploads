@@ -5,6 +5,26 @@ interface IconProps {
 
 const defaultSize = 16;
 
+export function IconMenu({ className, size = defaultSize }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden
+    >
+      <path
+        d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function IconSearch({ className, size = defaultSize }: IconProps) {
   return (
     <svg
@@ -307,6 +327,28 @@ export function IconExternal({ className, size = defaultSize }: IconProps) {
     >
       <path
         d="M6 3h7v7M13 3L7 9M9 13H4a1 1 0 01-1-1V4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function IconTerminal({ className, size = defaultSize }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden
+    >
+      <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M4.5 7l2 2-2 2M7.5 11h4"
         stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"

@@ -16,6 +16,7 @@ import {
 import { formatRobloxAssetName } from "@/lib/name-formatter";
 import { runQueue } from "@/lib/upload/queue";
 import type { UploadQueueItem } from "@/lib/types";
+import { validateActiveProfile } from "@/lib/config/credentials";
 import { uploadAsset } from "@/lib/upload/client";
 
 type WorkspaceView = "upload" | "library" | "settings";
@@ -162,14 +163,9 @@ export default function WorkspacePage() {
       return;
     }
 
-    if (!config.apiKey.trim()) {
-      setStatusMessage("Add your Open Cloud API key in Settings before uploading.");
-      setActiveView("settings");
-      return;
-    }
-
-    if (!config.creatorId.trim() || !/^\d+$/.test(config.creatorId.trim())) {
-      setStatusMessage("Creator ID must be a numeric Roblox user or group ID.");
+    const credentialError = validateActiveProfile(config);
+    if (credentialError) {
+      setStatusMessage(credentialError);
       setActiveView("settings");
       return;
     }
@@ -261,6 +257,9 @@ export default function WorkspacePage() {
       onViewChange={setActiveView}
       statusMessage={statusMessage}
       queueCount={items.filter((i) => i.status === "waiting").length}
+      config={config}
+      onConfigChange={setConfig}
+      configSwitcherDisabled={isRunning}
     >
       {activeView === "settings" ? (
         <SettingsPanel config={config} onChange={setConfig} disabled={isRunning} />

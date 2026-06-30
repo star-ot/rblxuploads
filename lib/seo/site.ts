@@ -6,11 +6,13 @@ export const siteConfig = {
   url: (process.env.NEXT_PUBLIC_SITE_URL ?? DEFAULT_SITE_URL).replace(/\/$/, ""),
   title: "Studio Vault — Roblox Asset Workspace",
   description:
-    "The asset browser Roblox developers always wanted. Browse, organize, and bulk-upload images, audio, models, and meshes via Open Cloud — including in-place model package updates. Local-first. Built for serious Roblox development.",
+    "The asset browser Roblox developers always wanted. Browse, organize, and bulk-upload images, audio, models, and meshes via Open Cloud — including in-place model package updates, InsertService workspace scripts, and multi-profile credential switching. Local-first. No telemetry. Built for serious Roblox development.",
   tagline: "Find. Organize. Ship.",
+  ogImageAlt:
+    "Studio Vault — Roblox asset workspace for bulk Open Cloud uploads and local rbxassetid libraries",
   author: {
     name: "StarVSK",
-    url: "https://github.com/star-ot",
+    url: "https://starvsk.dev",
   },
   keywords: [
     "Roblox asset manager",
@@ -28,7 +30,22 @@ export const siteConfig = {
     "Roblox studio assets",
     "Creator Dashboard alternative",
     "local Roblox asset workspace",
+    "Roblox rbxassetid library",
+    "Roblox InsertService script generator",
+    "Roblox model package update",
+    "Roblox Open Cloud API",
+    "Roblox asset upload tool",
+    "Roblox batch image upload",
+    "Roblox batch audio upload",
+    "Roblox FBX upload",
+    "Roblox mesh upload Open Cloud",
+    "Roblox creator tools",
+    "self-hosted Roblox uploader",
   ],
+  links: {
+    github: "https://github.com/star-ot/rblxuploads",
+    robloxCredentials: "https://create.roblox.com/dashboard/credentials",
+  },
 } as const;
 
 export function absoluteUrl(path = "/"): string {

@@ -1,3 +1,4 @@
+import { resolveUploadCredentials } from "@/lib/config/credentials";
 import type { UploadApiResponse, UploadConfig, UploadQueueItem } from "@/lib/types";
 
 interface UploadClientOptions {
@@ -13,13 +14,21 @@ export async function uploadAsset({
   item,
   config,
 }: UploadClientOptions): Promise<UploadApiResponse> {
+  const credentials = resolveUploadCredentials(config);
+  if (!credentials) {
+    return {
+      ok: false,
+      error: "Active credential profile is incomplete.",
+    };
+  }
+
   const formData = new FormData();
   formData.append("file", item.file);
   formData.append("assetType", item.assetType);
   formData.append("displayName", item.assetName);
-  formData.append("creatorId", config.creatorId.trim());
-  formData.append("creatorType", config.creatorType);
-  formData.append("apiKey", config.apiKey.trim());
+  formData.append("creatorId", credentials.creatorId);
+  formData.append("creatorType", credentials.creatorType);
+  formData.append("apiKey", credentials.apiKey);
 
   const response = await fetch("/api/upload", {
     method: "POST",
@@ -51,13 +60,21 @@ export async function updateModelPackage({
   displayName,
   config,
 }: UpdateModelPackageOptions): Promise<UploadApiResponse> {
+  const credentials = resolveUploadCredentials(config);
+  if (!credentials) {
+    return {
+      ok: false,
+      error: "Active credential profile is incomplete.",
+    };
+  }
+
   const formData = new FormData();
   formData.append("file", file);
   formData.append("assetId", assetId.trim());
   formData.append("displayName", displayName.trim());
-  formData.append("creatorId", config.creatorId.trim());
-  formData.append("creatorType", config.creatorType);
-  formData.append("apiKey", config.apiKey.trim());
+  formData.append("creatorId", credentials.creatorId);
+  formData.append("creatorType", credentials.creatorType);
+  formData.append("apiKey", credentials.apiKey);
 
   const response = await fetch("/api/upload", {
     method: "PATCH",

@@ -21,11 +21,16 @@ import {
   ALL_FOLDERS_OPTION,
   LibraryFolderPanel,
 } from "@/components/library/LibraryFolderPanel";
+import { InsertServiceScriptTrigger } from "@/components/library/InsertServiceScriptGenerator";
 import {
   IconCopy,
   IconFolder,
   IconSearch,
 } from "@/components/ui/Icon";
+import {
+  type InsertScriptAsset,
+  isInsertableStudioAsset,
+} from "@/lib/insert-service-script";
 import {
   buildFolderTree,
   buildNestedAssetCounts,
@@ -36,6 +41,7 @@ import {
   ROOT_FOLDER,
 } from "@/lib/folder-tree";
 import { canUpdateModelPackage } from "@/lib/file-parser";
+import { validateActiveProfile } from "@/lib/config/credentials";
 import { updateModelPackage } from "@/lib/upload/client";
 import type {
   AssetType,
@@ -564,8 +570,9 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
       setModelUpdateStatus("Only FBX files are supported for model package updates.");
       return;
     }
-    if (!config.apiKey.trim()) {
-      setModelUpdateStatus("Add your API key in Credentials first.");
+    const credentialError = validateActiveProfile(config);
+    if (credentialError) {
+      setModelUpdateStatus(credentialError);
       return;
     }
 
@@ -604,11 +611,24 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
 
   const selectedCount = selectedAssetIds.size;
 
+  const insertScriptAssets = useMemo((): InsertScriptAsset[] => {
+    const source =
+      selectedCount > 0
+        ? assets.filter((asset) => selectedAssetIds.has(asset.id))
+        : filteredAssets.filter((asset) => isInsertableStudioAsset(asset.type));
+
+    return source.map((asset) => ({
+      name: asset.name,
+      assetId: asset.assetId,
+      type: asset.type,
+    }));
+  }, [assets, filteredAssets, selectedAssetIds, selectedCount]);
+
   return (
     <section className="panel">
       <SectionHeader
         title="Asset library"
-        description="Folders, tags, search, drag-to-move, and portable export — stored in IndexedDB on your machine."
+        description="Folders, tags, search, drag-to-move, portable export, and Studio loaders for packages and sounds — stored in IndexedDB on your machine."
         meta={`${assets.length} assets · ${folders.length} folders`}
       />
 
@@ -675,7 +695,16 @@ export function AssetLibraryManager({ items, config }: AssetLibraryManagerProps)
         </button>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3">
+      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] p-3">
+        <InsertServiceScriptTrigger
+          assets={insertScriptAssets}
+          label={
+            selectedCount > 0
+              ? `Studio loader (${selectedCount})`
+              : "Studio loader"
+          }
+        />
+        <span className="hidden h-5 w-px bg-[var(--border-subtle)] sm:block" aria-hidden />
         <button type="button" className="btn-secondary" onClick={() => exportSelection("json")}>
           Export selected JSON
         </button>

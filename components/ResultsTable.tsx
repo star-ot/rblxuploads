@@ -5,7 +5,12 @@ import { useState } from "react";
 import type { UploadQueueItem } from "@/lib/types";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { InsertServiceScriptTrigger } from "@/components/library/InsertServiceScriptGenerator";
 import { IconAudio, IconCopy, IconImage, IconModel } from "@/components/ui/Icon";
+import {
+  type InsertScriptAsset,
+  isInsertableStudioAsset,
+} from "@/lib/insert-service-script";
 
 interface ResultsTableProps {
   items: UploadQueueItem[];
@@ -22,6 +27,14 @@ export function ResultsTable({ items }: ResultsTableProps) {
   const completedWithIds = completed.filter(
     (item): item is UploadQueueItem & { assetId: string } => Boolean(item.assetId),
   );
+
+  const insertScriptAssets: InsertScriptAsset[] = completedWithIds
+    .filter((item) => isInsertableStudioAsset(item.assetType))
+    .map((item) => ({
+      name: item.assetName,
+      assetId: item.assetId,
+      type: item.assetType,
+    }));
 
   async function copyOne(assetId: string | undefined, itemId: string) {
     if (!assetId) {
@@ -103,10 +116,15 @@ export function ResultsTable({ items }: ResultsTableProps) {
     <section className="panel">
       <SectionHeader
         title="Results"
-        description="Finished uploads with copyable asset IDs. Completed items are saved to your library automatically."
+        description="Finished uploads with copyable asset IDs. Generate Studio scripts for models, meshes, and sounds — completed items save to your library automatically."
         meta={`${completed.length} succeeded · ${finished.length - completed.length} failed`}
         action={
           <>
+            <InsertServiceScriptTrigger
+              assets={insertScriptAssets}
+              className="btn-secondary"
+              label="Load in Studio"
+            />
             <button
               type="button"
               onClick={copyAll}

@@ -8,11 +8,28 @@ export type UploadStatus =
 export type CreatorType = "user" | "group";
 export type AssetType = "Image" | "Audio" | "Model" | "Mesh";
 
-/** User-editable settings persisted in browser localStorage only. */
-export interface UploadConfig {
+/** One saved Open Cloud credential set (user or group). */
+export interface CredentialProfile {
+  id: string;
+  label: string;
   apiKey: string;
   creatorId: string;
   creatorType: CreatorType;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Resolved credentials for a single upload request. */
+export interface UploadCredentials {
+  apiKey: string;
+  creatorId: string;
+  creatorType: CreatorType;
+}
+
+/** User-editable settings persisted in browser localStorage only. */
+export interface UploadConfig {
+  profiles: CredentialProfile[];
+  activeProfileId: string | null;
   concurrency: number;
   maxRetries: number;
 }

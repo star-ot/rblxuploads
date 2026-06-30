@@ -4,7 +4,9 @@ import {
   IconModel,
   IconQueue,
   IconSearch,
+  IconSettings,
   IconTag,
+  IconTerminal,
   IconUpload,
 } from "@/components/ui/Icon";
 import {
@@ -14,6 +16,12 @@ import {
 } from "@/components/landing/LandingWorkflowDemos";
 
 const FEATURES = [
+  {
+    icon: IconSettings,
+    title: "Credential profiles for every group",
+    description:
+      "Save separate Open Cloud keys for users and groups. Switch from the header before you upload — keys stay masked and browser-only.",
+  },
   {
     icon: IconSearch,
     title: "Search everything instantly",
@@ -45,6 +53,12 @@ const FEATURES = [
       "Per-item progress, retry logic, and clear error messages. You always know what happened.",
   },
   {
+    icon: IconTerminal,
+    title: "Studio asset loader",
+    description:
+      "Select uploaded packages and audio — export Luau with InsertService layout for models and configured Sound instances with rbxassetid SoundIds.",
+  },
+  {
     icon: IconModel,
     title: "Update model packages in place",
     description:
@@ -59,7 +73,7 @@ const REASONS = [
   },
   {
     stat: "0 servers",
-    label: "Credentials never leave your browser",
+    label: "Multi-profile credentials never leave your browser",
   },
   {
     stat: "∞ local",
@@ -80,8 +94,8 @@ export function Features() {
             <p className="mt-3 text-[var(--text-secondary)]">
               Creator Dashboard was built for publishing. Studio Vault was built for
               the daily work of managing hundreds of assets across experiences.{" "}
-              <a href="#show-tell" className="text-[var(--accent-hover)] underline-offset-2 hover:underline">
-                Try the live library search above
+              <a href="#credentials" className="text-[var(--accent-hover)] underline-offset-2 hover:underline">
+                Try credential profile switching above
               </a>
               .
             </p>

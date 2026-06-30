@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { CredentialSwitcher } from "@/components/CredentialSwitcher";
+import type { UploadConfig } from "@/lib/types";
 import {
   IconLibrary,
   IconQueue,
@@ -17,6 +19,9 @@ interface WorkspaceShellProps {
   onViewChange: (view: WorkspaceView) => void;
   statusMessage?: string;
   queueCount?: number;
+  config?: UploadConfig;
+  onConfigChange?: (next: UploadConfig) => void;
+  configSwitcherDisabled?: boolean;
 }
 
 const NAV_ITEMS: { id: WorkspaceView; label: string; icon: typeof IconQueue }[] = [
@@ -31,12 +36,15 @@ export function WorkspaceShell({
   onViewChange,
   statusMessage,
   queueCount = 0,
+  config,
+  onConfigChange,
+  configSwitcherDisabled = false,
 }: WorkspaceShellProps) {
   return (
     <div className="app-shell flex min-h-dvh flex-col">
       <header className="sticky top-0 z-40 border-b border-[var(--border-subtle)] bg-[var(--bg-base)]/95 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-6">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-6">
             <Link href="/" className="flex shrink-0 items-center gap-2.5 no-underline">
               <span
                 className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent-muted)] text-[var(--accent)]"
@@ -70,6 +78,7 @@ export function WorkspaceShell({
                     ].join(" ")}
                     onClick={() => onViewChange(item.id)}
                     aria-current={isActive ? "page" : undefined}
+                    aria-label={item.label}
                   >
                     <item.icon size={14} />
                     <span className="hidden sm:inline">{item.label}</span>
@@ -84,9 +93,19 @@ export function WorkspaceShell({
             </nav>
           </div>
 
-          <p className="hidden font-mono text-[11px] text-[var(--text-faint)] lg:block">
-            Local workspace
-          </p>
+          <div className="flex shrink-0 items-center gap-3">
+            {config && onConfigChange ? (
+              <CredentialSwitcher
+                config={config}
+                onChange={onConfigChange}
+                onOpenSettings={() => onViewChange("settings")}
+                disabled={configSwitcherDisabled}
+              />
+            ) : null}
+            <p className="hidden font-mono text-[11px] text-[var(--text-faint)] lg:block">
+              Local workspace
+            </p>
+          </div>
         </div>
       </header>
 

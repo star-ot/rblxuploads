@@ -14,7 +14,8 @@ export function Hero() {
             </h1>
             <p className="mt-5 max-w-md text-base leading-relaxed text-[var(--text-secondary)] sm:text-lg">
               Find. Organize. Ship. Every rbxassetid in one place — bulk upload, model packages you
-              can overwrite in place, and metadata that helps you build.
+              can overwrite in place, InsertService scripts for instant Studio loading, and credential
+              profiles for every group you ship to.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -22,16 +23,16 @@ export function Hero() {
                 Open workspace
                 <IconArrowRight size={16} />
               </Link>
-              <a href="#model-packages" className="btn-secondary px-5 py-2.5 text-[15px]">
-                Model package updates
+              <a href="#studio-loader" className="btn-secondary px-5 py-2.5 text-[15px]">
+                InsertService loader
               </a>
-              <a href="#show-tell" className="btn-ghost px-5 py-2.5 text-[15px]">
-                Try library search
+              <a href="#credentials" className="btn-ghost px-5 py-2.5 text-[15px]">
+                Credential profiles
               </a>
             </div>
 
             <p className="mt-6 font-mono text-xs text-[var(--text-faint)]">
-              Local-first · Open Cloud · Images, audio, models, meshes · Package PATCH (FBX)
+              Local-first · Multi-profile Open Cloud · Upload → Workspace scripts
             </p>
           </div>
 

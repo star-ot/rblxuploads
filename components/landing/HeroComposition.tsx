@@ -6,6 +6,11 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { IconAudio, IconCopy, IconModel } from "@/components/ui/Icon";
 import { HeroLuaSnippet } from "@/components/landing/HeroLuaSnippet";
 import { createDemoImageThumbnail, createDemoThumbnail } from "@/lib/demo-placeholders";
+import {
+  DEMO_HERO_CREDENTIAL_BADGE,
+  DEMO_HERO_CREDENTIAL_LABEL,
+  DEMO_HERO_CREATOR_ID,
+} from "@/lib/demo-credentials";
 import { buildCopyAllText, buildHeroLuaModule } from "@/lib/hero-lua-snippet";
 import type { AssetType, UploadStatus } from "@/lib/types";
 
@@ -277,12 +282,23 @@ export function HeroComposition() {
                 header={
                   <>
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <div
                           className={`h-2 w-2 rounded-full ${isRunning ? "hero-pulse-dot bg-[var(--accent)]" : "bg-[var(--text-faint)]"}`}
                         />
                         <span className="font-mono text-[10px] text-[var(--text-faint)]">
                           Upload queue
+                        </span>
+                        <span
+                          className="credential-switcher pointer-events-none hidden px-2 py-0.5 text-[9px] sm:inline-flex"
+                          title={`Publishing to Group ${DEMO_HERO_CREATOR_ID}`}
+                        >
+                          <span className="credential-switcher-badge text-[9px]">
+                            {DEMO_HERO_CREDENTIAL_BADGE}
+                          </span>
+                          <span className="max-w-[7rem] truncate">
+                            {DEMO_HERO_CREDENTIAL_LABEL}
+                          </span>
                         </span>
                       </div>
                       <div className="flex items-center gap-2">

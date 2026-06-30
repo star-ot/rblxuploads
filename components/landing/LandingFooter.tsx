@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { siteConfig } from "@/lib/seo/site";
 
 export function LandingFooter() {
   return (
@@ -12,12 +13,12 @@ export function LandingFooter() {
             <p className="caption leading-relaxed">
               The asset workspace for Roblox developers. Built by{" "}
               <a
-                href="https://github.com/star-ot"
+                href={siteConfig.author.url}
                 className="link-accent"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                StarVSK
+                {siteConfig.author.name}
               </a>
               . Open source. Runs locally.
             </p>
@@ -32,8 +33,11 @@ export function LandingFooter() {
               <a href="#faq" className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]">
                 FAQ
               </a>
+              <Link href="/changelog" className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]">
+                Changelog
+              </Link>
               <a
-                href="https://github.com/star-ot"
+                href={siteConfig.links.github}
                 className="block text-[13px] text-[var(--text-secondary)] no-underline hover:text-[var(--text-primary)]"
                 target="_blank"
                 rel="noopener noreferrer"

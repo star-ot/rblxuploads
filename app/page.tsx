@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
+import { CredentialManagement } from "@/components/landing/CredentialManagement";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { LandingNav } from "@/components/landing/LandingNav";
 import { Hero } from "@/components/landing/Hero";
 import { Features } from "@/components/landing/Features";
 import { ShowTell } from "@/components/landing/ShowTell";
 import { ModelPackages } from "@/components/landing/ModelPackages";
+import { InsertServiceStudio } from "@/components/landing/InsertServiceStudio";
 import { Faq } from "@/components/landing/Faq";
 import { HomePageJsonLd } from "@/components/seo/JsonLd";
+import { openGraphImages, twitterImages } from "@/lib/seo/open-graph";
 import { absoluteUrl, siteConfig } from "@/lib/seo/site";
 
 export const metadata: Metadata = {
@@ -21,20 +24,13 @@ export const metadata: Metadata = {
     description: siteConfig.description,
     url: absoluteUrl("/"),
     type: "website",
-    images: [
-      {
-        url: absoluteUrl("/opengraph-image"),
-        width: 1200,
-        height: 630,
-        alt: siteConfig.title,
-      },
-    ],
+    images: [...openGraphImages()],
   },
   twitter: {
     card: "summary_large_image",
     title: siteConfig.title,
     description: siteConfig.description,
-    images: [absoluteUrl("/twitter-image")],
+    images: [...twitterImages()],
   },
 };
 
@@ -45,8 +41,10 @@ export default function HomePage() {
       <LandingNav />
       <main className="flex-1">
         <Hero />
+        <CredentialManagement />
         <ShowTell />
         <ModelPackages />
+        <InsertServiceStudio />
         <Features />
         <Faq />
       </main>

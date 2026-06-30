@@ -1,13 +1,15 @@
 import type { UploadConfig } from "@/lib/types";
 
 /** localStorage key — bump version when persisted shape changes. */
-export const CONFIG_STORAGE_KEY = "starvsk-rblx-uploader-config-v2";
+export const CONFIG_STORAGE_KEY = "starvsk-rblx-uploader-config-v3";
+
+/** Previous key — read once for migration, never written again. */
+export const LEGACY_CONFIG_STORAGE_KEY = "starvsk-rblx-uploader-config-v2";
 
 /** Sensible defaults for a fresh install. No secrets are embedded here. */
 export const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
-  apiKey: "",
-  creatorId: "",
-  creatorType: "user",
+  profiles: [],
+  activeProfileId: null,
   concurrency: 4,
   maxRetries: 2,
 };

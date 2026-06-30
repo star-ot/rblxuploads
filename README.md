@@ -1,6 +1,6 @@
 # RblxUploads
 
-**Made by [StarVSK](https://github.com/star-ot)**
+**Made by [StarVSK](https://starvsk.dev)**
 
 Local batch uploader for Roblox Open Cloud **Image**, **Audio**, **Model**, and **Mesh** assets. Queue files, name them, upload with controlled concurrency, and manage resulting `rbxassetid://` values in a local asset library.
 
